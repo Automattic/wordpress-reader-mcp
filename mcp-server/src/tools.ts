@@ -13,7 +13,7 @@ export const readerTools: Record<string, Tool> = {
       type: 'object',
       properties: {},
     },
-    handler: async (args, token) => {
+    handler: async (_args, token) => {
       return callWordPressAPI('/read/menu', token);
     },
   },
@@ -129,7 +129,7 @@ export const readerTools: Record<string, Tool> = {
       type: 'object',
       properties: {},
     },
-    handler: async (args, token) => {
+    handler: async (_args, token) => {
       return callWordPressAPI('/read/tags', token);
     },
   },
@@ -182,7 +182,7 @@ export const readerTools: Record<string, Tool> = {
       type: 'object',
       properties: {},
     },
-    handler: async (args, token) => {
+    handler: async (_args, token) => {
       return callWordPressAPI('/read/following/mine', token);
     },
   },
@@ -400,7 +400,7 @@ export const readerTools: Record<string, Tool> = {
       type: 'object',
       properties: {},
     },
-    handler: async (args, token) => {
+    handler: async (_args, token) => {
       // Get unread notifications with minimal fields to count them
       const result = await callWordPressAPI('/notifications?unread=true&fields=id&number=99', token);
       
@@ -452,7 +452,7 @@ export const readerTools: Record<string, Tool> = {
       if (args.order) params.append('order', args.order);
       if (args.status) params.append('status', args.status);
       
-      return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/comments?${params}`, token);
+      return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/replies?${params}`, token);
     },
   },
 
@@ -510,7 +510,7 @@ export const readerTools: Record<string, Tool> = {
         body.parent = args.parent;
       }
       
-      return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/comments/new`, token, 'POST', body);
+      return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/replies/new`, token, 'POST', body);
     },
   },
 
