@@ -29,16 +29,32 @@ router.get('/test', (req, res) => {
   res.send(`
     <html>
       <body>
-        <h2>WordPress OAuth Test</h2>
-        <p>Click the link below to test the OAuth flow:</p>
-        <a href="/auth/authorize?code_challenge=${codeChallenge}&code_challenge_method=S256&state=${testState}&redirect_uri=http://localhost:3000/auth/callback">
-          Start OAuth Flow
-        </a>
-        <hr>
-        <p><strong>Test Parameters:</strong></p>
-        <p>State: <code>${testState}</code></p>
-        <p>Code Verifier: <code>${codeVerifier}</code></p>
-        <p>Code Challenge: <code>${codeChallenge}</code></p>
+        <h2>WordPress Reader MCP Authentication</h2>
+        <p>Authenticate your WordPress.com account to enable WordPress Reader tools in Claude Desktop.</p>
+        
+        <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3>🔒 What this does:</h3>
+          <ul>
+            <li>Connects your WordPress.com account</li>
+            <li>Enables WordPress Reader tools in Claude</li>
+            <li>Automatically manages authentication tokens</li>
+            <li>No manual configuration required</li>
+          </ul>
+        </div>
+        
+        <p>
+          <a href="/auth/authorize?code_challenge=${codeChallenge}&code_challenge_method=S256&state=${testState}&redirect_uri=http://localhost:3000/callback" 
+             style="display: inline-block; background: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            🚀 Authenticate with WordPress.com
+          </a>
+        </p>
+        
+        <details style="margin-top: 20px;">
+          <summary>🔍 Technical Details</summary>
+          <p><strong>State:</strong> <code>${testState}</code></p>
+          <p><strong>Code Verifier:</strong> <code>${codeVerifier}</code></p>
+          <p><strong>Code Challenge:</strong> <code>${codeChallenge}</code></p>
+        </details>
       </body>
     </html>
   `);
@@ -147,26 +163,35 @@ router.get('/callback', async (req, res) => {
         <html>
           <body>
             <h2>OAuth Authentication Successful! ✅</h2>
-            <p><strong>Authorization Code:</strong> <code>${authCode}</code></p>
-            <p><strong>State:</strong> <code>${state}</code></p>
-            <p><strong>WordPress Token:</strong> <code>${mcpToken.wordpress_token}</code></p>
-            <p><strong>Blog ID:</strong> ${mcpToken.user_info.blog_id}</p>
-            <p><strong>Blog URL:</strong> ${mcpToken.user_info.blog_url}</p>
+            <p><strong>Token cached successfully!</strong> Your MCP server will now authenticate automatically.</p>
             <hr>
-            <h3>🔧 Configure Claude Desktop</h3>
-            <p>Add this to your Claude Desktop configuration:</p>
-            <pre style="background: #f5f5f5; padding: 10px; border-radius: 5px;">
-"wordpress-reader": {
-  "command": "node",
-  "args": ["/path/to/your/mcp-server/dist/index.js"],
-  "env": {
-    "AUTH_SERVER_URL": "http://localhost:3000",
-    "WORDPRESS_ACCESS_TOKEN": "${mcpToken.wordpress_token}"
-  }
-}</pre>
-            <p><strong>⚠️ Important:</strong> Copy the WordPress token above and add it to your Claude Desktop config, then restart Claude Desktop.</p>
+            <h3>✨ What happens next?</h3>
+            <ul>
+              <li>✅ Your WordPress token has been cached for the MCP server</li>
+              <li>✅ No manual configuration needed in Claude Desktop</li>
+              <li>✅ The MCP server will automatically use this token</li>
+              <li>✅ Token will refresh automatically when needed</li>
+            </ul>
             <hr>
-            <p><em>This page is for testing. In production, Claude will handle this redirect automatically.</em></p>
+            <h3>🚀 Test Your Setup</h3>
+            <p>In Claude Desktop, try commands like:</p>
+            <ul>
+              <li>"Show me my WordPress Reader feed"</li>
+              <li>"Get A8C posts"</li>
+              <li>"Get posts tagged with 'technology'"</li>
+            </ul>
+            <hr>
+            <details>
+              <summary>🔍 Debug Information (click to expand)</summary>
+              <p><strong>Authorization Code:</strong> <code>${authCode}</code></p>
+              <p><strong>State:</strong> <code>${state}</code></p>
+              <p><strong>WordPress Token:</strong> <code>${mcpToken.wordpress_token.substring(0, 20)}...</code></p>
+              <p><strong>Blog ID:</strong> ${mcpToken.user_info.blog_id}</p>
+              <p><strong>Blog URL:</strong> ${mcpToken.user_info.blog_url}</p>
+              <p><strong>Token Expires:</strong> ${new Date(mcpToken.expires_at).toLocaleString()}</p>
+            </details>
+            <hr>
+            <p><em>🎉 Authentication complete! You can close this page and start using WordPress Reader tools in Claude.</em></p>
           </body>
         </html>
       `);
