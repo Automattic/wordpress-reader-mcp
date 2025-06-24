@@ -174,7 +174,7 @@ export async function initiateBackgroundAuth(): Promise<string> {
       `code_challenge=${codeChallenge}&` +
       `code_challenge_method=S256&` +
       `state=${state}&` +
-      `redirect_uri=${AUTH_SERVER_URL}/callback&` +
+      `redirect_uri=${AUTH_SERVER_URL}/auth/callback&` +
       `source=mcp-background`;
 
     return authUrl;

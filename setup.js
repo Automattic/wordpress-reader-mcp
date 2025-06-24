@@ -144,7 +144,7 @@ async function getWordPressCredentials() {
   log('You need to create a WordPress.com application first:');
   log('1. Go to https://developer.wordpress.com/apps/');
   log('2. Create a new application');
-  log('3. Set redirect URI to: http://localhost:3000/callback');
+  log('3. Set redirect URI to: http://localhost:3000/auth/callback');
   log('4. Copy your Client ID and Client Secret');
   log('');
 
@@ -186,7 +186,7 @@ WORDPRESS_CLIENT_ID=${credentials.clientId}
 WORDPRESS_CLIENT_SECRET=${credentials.clientSecret}
 
 # OAuth Configuration
-REDIRECT_URI=http://localhost:3000/callback
+REDIRECT_URI=http://localhost:3000/auth/callback
 
 # Server Configuration
 PORT=3000
