@@ -138,11 +138,12 @@ Automatically added to `~/Library/Application Support/Claude/claude_desktop_conf
 
 1. **First Time Setup**: User runs `npm run setup`
 2. **WordPress OAuth**: Browser opens to authenticate with WordPress.com
-3. **Token Storage**: OAuth tokens stored in web app memory
+3. **Token Storage**: OAuth tokens stored persistently in `.wp-auth-tokens.json`
 4. **Background Service**: Auth service runs constantly on port 3000
 5. **MCP Integration**: Claude Desktop connects to MCP server
 6. **Tool Calls**: MCP server gets fresh tokens from auth service automatically
-7. **API Calls**: Authenticated requests to WordPress.com Reader API
+7. **Token Persistence**: Tokens survive web app restarts, no re-authentication needed
+8. **API Calls**: Authenticated requests to WordPress.com Reader API
 
 ## Troubleshooting
 
@@ -204,13 +205,15 @@ After setup, Claude can access WordPress Reader functionality:
 
 ## Production Considerations
 
-- **Token Storage**: Current implementation uses in-memory storage; Redis recommended for production
+- **Token Storage**: File-based persistent storage (`.wp-auth-tokens.json`); Redis recommended for production scaling
 - **Rate Limiting**: WordPress.com API has rate limits; consider implementing request throttling
 - **Monitoring**: Service includes health checks; add metrics for production monitoring
 - **Scaling**: Single-instance design; for scale, consider token sharing mechanisms
+- **Security**: Token files are in .gitignore; ensure proper file permissions in production
 
 ## Recent Updates
 
+- ✅ **Implemented persistent token storage** - Tokens survive web app restarts, eliminating redundant setup authentication
 - ✅ Fixed service stop/restart functionality with proper process tree cleanup
 - ✅ Fixed web app build structure and /auth/test endpoint accessibility  
 - ✅ Implemented background service for constant authentication availability
