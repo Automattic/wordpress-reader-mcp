@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { execSync } from 'child_process';
 import { log, logError } from './logger.js';
 
 const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL || 'http://localhost:3000';
@@ -37,6 +38,87 @@ export async function validateToken(token: string): Promise<{
   }
 }
 
+// Check if auth server is healthy
+async function checkAuthServerHealth(): Promise<boolean> {
+  try {
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(`${AUTH_SERVER_URL}/health`, {
+      method: 'GET',
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
+// Try to start auth server if it's not running
+async function ensureAuthServerRunning(): Promise<boolean> {
+  try {
+    // Check if server is already running
+    if (await checkAuthServerHealth()) {
+      return true;
+    }
+
+    log('Auth server not responding, attempting to start...');
+    
+    // Try to find the project root and start the service
+    const projectRoot = findProjectRoot();
+    if (projectRoot) {
+      execSync('node service-manager.js auto-start', { 
+        cwd: projectRoot,
+        stdio: 'ignore',
+        timeout: 10000
+      });
+      
+      // Wait a moment for startup
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Check if it's now running
+      if (await checkAuthServerHealth()) {
+        log('Successfully started auth server');
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    logError('Failed to start auth server', error);
+    return false;
+  }
+}
+
+// Find project root directory
+function findProjectRoot(): string | null {
+  let currentDir = process.cwd();
+  const maxLevels = 5; // Prevent infinite loop
+  
+  for (let i = 0; i < maxLevels; i++) {
+    try {
+      // Use sync version for directory traversal since it's simpler
+      const { existsSync } = require('fs');
+      if (existsSync(path.join(currentDir, 'service-manager.js'))) {
+        return currentDir;
+      }
+    } catch (error) {
+      // Continue to next directory
+    }
+    
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break; // Reached root directory
+    }
+    currentDir = parentDir;
+  }
+  
+  return null;
+}
+
 export async function getBackgroundToken(): Promise<string | null> {
   try {
     // Try to load cached token first
@@ -44,6 +126,12 @@ export async function getBackgroundToken(): Promise<string | null> {
     if (cachedToken && cachedToken.expires_at > Date.now()) {
       log('Using cached WordPress token');
       return cachedToken.wordpress_token;
+    }
+
+    // Ensure auth server is running
+    if (!(await ensureAuthServerRunning())) {
+      log('Auth server is not available');
+      return null;
     }
 
     // Check if there's a current valid session in the auth server

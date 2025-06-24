@@ -40,3 +40,7 @@ coverage/
 .mcp-auth-cache.json
 .mcp-auth-state.json
 mcp-server.log
+
+# Service management files
+.service.pid
+auth-service.log

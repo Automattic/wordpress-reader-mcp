@@ -7,6 +7,13 @@
     "setup": "node setup.js",
     "start-auth": "cd web-app && npm run dev",
     "build-all": "cd web-app && npm run build && cd ../mcp-server && npm run build",
+    "service": "node service-manager.js",
+    "service:start": "node service-manager.js start",
+    "service:stop": "node service-manager.js stop",
+    "service:restart": "node service-manager.js restart",
+    "service:status": "node service-manager.js status",
+    "service:logs": "node service-manager.js logs",
+    "service:health": "node service-manager.js health",
     "help": "echo 'Run: npm run setup - to set up WordPress Reader for Claude Desktop'"
   },
   "keywords": [

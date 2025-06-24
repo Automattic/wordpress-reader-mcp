@@ -23,7 +23,7 @@ The setup script will:
 - ✅ Build all applications
 - ✅ Configure Claude Desktop automatically
 - ✅ Open browser for WordPress authentication
-- ✅ Set up background authentication
+- ✅ Start background authentication service
 
 ## 🧪 Test It Works
 
@@ -32,9 +32,27 @@ Restart Claude Desktop and try:
 - *"How many unread notifications do I have?"*
 - *"Get posts tagged with technology"*
 
+## 🔧 Service Management
+
+The setup automatically starts a background service for authentication. If needed:
+
+```bash
+# Check if service is running
+npm run service:status
+
+# Restart service if having issues
+npm run service:restart
+
+# View service logs
+npm run service:logs
+```
+
 ## 🆘 If Something Goes Wrong
 
-Run the manual setup steps in [README.md](README.md)
+**Common fixes:**
+1. Check service status: `npm run service:status`
+2. Restart service: `npm run service:restart`
+3. Run manual setup: see [README.md](README.md)
 
 ---
 

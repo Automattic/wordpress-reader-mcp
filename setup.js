@@ -461,10 +461,21 @@ async function main() {
     
     await startAuthentication();
     
+    // Start the background service
+    log('\n🚀 Starting background service...', 'cyan');
+    try {
+      execSync('node service-manager.js auto-start', { stdio: 'inherit' });
+      logSuccess('Background auth service is now running');
+    } catch (error) {
+      logWarning('Failed to start background service automatically');
+      log('You can start it manually with: npm run service:start', 'yellow');
+    }
+    
     log('\n🎉 Setup Complete!', 'green');
     log('==================', 'green');
     log('');
     logSuccess('WordPress Reader is now configured for Claude Desktop');
+    logSuccess('Background authentication service is running');
     log('');
     log('Next steps:', 'cyan');
     log('1. Restart Claude Desktop completely');
@@ -472,6 +483,11 @@ async function main() {
     log('   • "Show me my WordPress Reader feed"');
     log('   • "How many unread notifications do I have?"');
     log('   • "Get posts from the technology tag"');
+    log('');
+    log('Service management:', 'cyan');
+    log('• Check status: npm run service:status');
+    log('• View logs: npm run service:logs');
+    log('• Restart: npm run service:restart');
     log('');
     log('If you need help, check the README.md file for troubleshooting.', 'blue');
     

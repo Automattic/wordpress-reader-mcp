@@ -51,6 +51,7 @@ The script will:
 - Set up your environment
 - Build the applications
 - Try to configure Claude Desktop automatically
+- Start the background authentication service
 
 ### Step 4: Enter Your WordPress Credentials
 
@@ -176,9 +177,16 @@ Once set up, you can use these natural language commands in Claude Desktop:
 ## 🔍 Troubleshooting
 
 ### "No tools available" or "Authentication required"
-1. Make sure both web-app and MCP server are running
-2. Complete the authentication at `http://localhost:3000/auth/test`
-3. Restart Claude Desktop
+1. Check if the background service is running: `npm run service:status`
+2. If not running, start it: `npm run service:start`
+3. Complete authentication at `http://localhost:3000/auth/test`
+4. Restart Claude Desktop
+
+### Background service issues
+1. Check service status: `npm run service:status`
+2. View service logs: `npm run service:logs`
+3. Restart service: `npm run service:restart`
+4. Check if port 3000 is available: `lsof -i :3000` (Mac/Linux)
 
 ### "Command not found: npm"
 Install Node.js from [nodejs.org](https://nodejs.org/)
@@ -198,14 +206,54 @@ Try running with `sudo` on Mac/Linux or "Run as Administrator" on Windows
 
 ## 🛠️ Advanced Usage
 
-### Running Services Manually
+### Background Authentication Service
 
-Start authentication server:
+WordPress Reader runs a background authentication service that handles token management automatically. This service needs to run constantly for seamless authentication.
+
+**Service Management Commands:**
 ```bash
-cd web-app && npm run dev
+# Check service status
+npm run service:status
+
+# Start service
+npm run service:start
+
+# Stop service
+npm run service:stop
+
+# Restart service
+npm run service:restart
+
+# View service logs
+npm run service:logs
+
+# Check service health
+npm run service:health
 ```
 
-The MCP server starts automatically when Claude Desktop loads.
+**Automatic Service Management:**
+- The setup script automatically starts the service
+- The MCP server will try to start the service if it's not running
+- Service runs in the background and persists across reboots (with optional system integration)
+
+**Manual Service Management:**
+```bash
+# Development mode (with auto-reload)
+cd web-app && npm run dev
+
+# Production mode (background service)
+npm run service:start
+```
+
+**System Integration (Optional):**
+To start the service automatically on system boot:
+```bash
+# Install as system service
+node service-manager.js install
+
+# macOS: Enable with launchctl
+# Linux: Enable with systemctl --user
+```
 
 ### Viewing Logs
 
