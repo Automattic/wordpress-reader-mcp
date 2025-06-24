@@ -124,10 +124,101 @@ function startService() {
   }, 2000);
 }
 
+// Kill process tree recursively
+function killProcessTree(pid) {
+  try {
+    // Kill all child processes first
+    const { execSync } = require('child_process');
+    
+    if (os.platform() === 'win32') {
+      // Windows
+      execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore' });
+    } else {
+      // Unix-like systems (macOS, Linux)
+      try {
+        // Get all child processes
+        const children = execSync(`pgrep -P ${pid}`, { encoding: 'utf8', stdio: 'pipe' })
+          .trim()
+          .split('\n')
+          .filter(p => p)
+          .map(p => parseInt(p));
+        
+        // Kill children recursively
+        children.forEach(childPid => {
+          if (childPid) {
+            killProcessTree(childPid);
+          }
+        });
+      } catch (error) {
+        // No children found, that's okay
+      }
+      
+      // Kill the main process
+      try {
+        process.kill(parseInt(pid), 'SIGTERM');
+        // Wait a moment, then force kill if still running
+        setTimeout(() => {
+          try {
+            process.kill(parseInt(pid), 0);
+            // Still running, force kill
+            process.kill(parseInt(pid), 'SIGKILL');
+          } catch (error) {
+            // Process already stopped
+          }
+        }, 500);
+      } catch (error) {
+        // Process already stopped
+      }
+    }
+  } catch (error) {
+    // Process might already be dead
+  }
+}
+
+// Kill any processes using port 3000
+function killPort3000Processes() {
+  try {
+    const { execSync } = require('child_process');
+    
+    if (os.platform() === 'win32') {
+      // Windows
+      try {
+        const result = execSync('netstat -ano | findstr :3000', { encoding: 'utf8' });
+        const lines = result.split('\n');
+        lines.forEach(line => {
+          const match = line.trim().match(/\s+(\d+)$/);
+          if (match) {
+            const pid = match[1];
+            execSync(`taskkill /pid ${pid} /F`, { stdio: 'ignore' });
+          }
+        });
+      } catch (error) {
+        // No processes found on port 3000
+      }
+    } else {
+      // Unix-like systems
+      try {
+        const result = execSync('lsof -ti:3000', { encoding: 'utf8' });
+        const pids = result.trim().split('\n').filter(p => p);
+        pids.forEach(pid => {
+          if (pid) {
+            killProcessTree(pid);
+          }
+        });
+      } catch (error) {
+        // No processes found on port 3000
+      }
+    }
+  } catch (error) {
+    // Ignore errors in cleanup
+  }
+}
+
 // Stop the service
-function stopService() {
+function stopService(callback) {
   if (!isServiceRunning()) {
     logWarning('WordPress Reader auth service is not running');
+    if (callback) callback();
     return;
   }
   
@@ -135,40 +226,39 @@ function stopService() {
     const pid = fs.readFileSync(PID_FILE, 'utf8').trim();
     logInfo(`Stopping WordPress Reader auth service (PID: ${pid})...`);
     
-    // Kill the process
-    process.kill(parseInt(pid), 'SIGTERM');
+    // Kill the process tree
+    killProcessTree(pid);
     
-    // Wait for graceful shutdown
+    // Also kill any remaining processes on port 3000
+    killPort3000Processes();
+    
+    // Wait for cleanup
     setTimeout(() => {
-      try {
-        process.kill(parseInt(pid), 0);
-        // Still running, force kill
-        process.kill(parseInt(pid), 'SIGKILL');
-      } catch (error) {
-        // Process stopped
-      }
-      
       // Clean up PID file
       try {
         fs.unlinkSync(PID_FILE);
       } catch (error) {}
       
       logSuccess('WordPress Reader auth service stopped');
-    }, 1000);
+      if (callback) callback();
+    }, 1500);
     
   } catch (error) {
     logError('Failed to stop service');
     logError(error.message);
+    if (callback) callback();
   }
 }
 
 // Restart the service
 function restartService() {
   logInfo('Restarting WordPress Reader auth service...');
-  stopService();
-  setTimeout(() => {
-    startService();
-  }, 2000);
+  stopService(() => {
+    // Wait a moment after stop completes before starting
+    setTimeout(() => {
+      startService();
+    }, 1000);
+  });
 }
 
 // Show service status
