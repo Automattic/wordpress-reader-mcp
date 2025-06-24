@@ -83,17 +83,30 @@ function startService() {
     }
   }
   
-  // Start the service in background
-  const logStream = fs.createWriteStream(LOG_FILE, { flags: 'a' });
-  
-  const child = spawn('npm', ['start'], {
-    cwd: 'web-app',
+  // Start the service in background using our start script
+  const child = spawn('node', ['start-service.js'], {
     detached: true,
-    stdio: ['ignore', logStream, logStream]
+    stdio: ['ignore', 'ignore', 'ignore']
   });
   
   // Save PID
   fs.writeFileSync(PID_FILE, child.pid.toString());
+  
+  // Handle child process errors
+  child.on('error', (error) => {
+    logError(`Failed to start service: ${error.message}`);
+    try {
+      fs.unlinkSync(PID_FILE);
+    } catch (e) {}
+  });
+  
+  child.on('exit', (code, signal) => {
+    if (code !== 0) {
+      logError(`Service exited with code ${code}, signal ${signal}`);
+    }
+    // Don't remove PID file immediately on exit
+    // This will be handled by the process check
+  });
   
   // Detach from parent process
   child.unref();
