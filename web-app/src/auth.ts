@@ -2,6 +2,8 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import fetch from 'node-fetch';
+import fs from 'fs/promises';
+import path from 'path';
 import { TokenInfo, MCPToken } from './types.js';
 
 const router = Router();
@@ -318,11 +320,12 @@ router.get('/wordpress-token/:auth_code', async (req, res) => {
 // Background authentication endpoint for MCP server
 router.get('/current-token', async (_req, res) => {
   try {
-    // Get the most recent valid token
+    // Get the most recent valid token from persistent storage
+    const tokens = await loadTokens();
     let latestToken: MCPToken | null = null;
     let latestTimestamp = 0;
     
-    for (const token of tokens.values()) {
+    for (const token of Object.values(tokens)) {
       if (token.expires_at > Date.now() && token.expires_at > latestTimestamp) {
         latestToken = token;
         latestTimestamp = token.expires_at;
@@ -330,6 +333,7 @@ router.get('/current-token', async (_req, res) => {
     }
     
     if (latestToken) {
+      console.log(`Serving cached token for user ${latestToken.user_info.blog_id}, expires at ${new Date(latestToken.expires_at).toISOString()}`);
       res.json({
         wordpress_token: latestToken.wordpress_token,
         blog_id: latestToken.user_info.blog_id,
@@ -337,35 +341,142 @@ router.get('/current-token', async (_req, res) => {
         expires_at: latestToken.expires_at
       });
     } else {
+      console.log('No valid cached token found');
       res.status(404).json({ error: 'No valid token found' });
     }
   } catch (error) {
+    console.error('Failed to retrieve current token:', error);
     res.status(500).json({ error: 'Failed to retrieve current token' });
   }
 });
 
 export const authRouter = router;
 
-// Token storage (implement with Redis in production)
-const tokens = new Map<string, MCPToken>();
-const authCodes = new Map<string, { token_id: string; code_challenge: string }>();
+// Persistent token storage
+const TOKEN_STORAGE_FILE = path.join(process.cwd(), '.wp-auth-tokens.json');
+const AUTH_CODES_FILE = path.join(process.cwd(), '.wp-auth-codes.json');
+
+interface TokenStorage {
+  tokens: Record<string, MCPToken>;
+  lastUpdated: number;
+}
+
+interface AuthCodeStorage {
+  authCodes: Record<string, { token_id: string; code_challenge: string; expires_at: number }>;
+  lastUpdated: number;
+}
+
+// Load tokens from file
+async function loadTokens(): Promise<Record<string, MCPToken>> {
+  try {
+    const data = await fs.readFile(TOKEN_STORAGE_FILE, 'utf-8');
+    const storage: TokenStorage = JSON.parse(data);
+    
+    // Clean up expired tokens
+    const now = Date.now();
+    const validTokens: Record<string, MCPToken> = {};
+    
+    for (const [id, token] of Object.entries(storage.tokens)) {
+      if (token.expires_at > now) {
+        validTokens[id] = token;
+      }
+    }
+    
+    // Save cleaned tokens back if any were removed
+    if (Object.keys(validTokens).length !== Object.keys(storage.tokens).length) {
+      await saveTokens(validTokens);
+    }
+    
+    return validTokens;
+  } catch (error) {
+    // File doesn't exist or is invalid, return empty object
+    return {};
+  }
+}
+
+// Save tokens to file
+async function saveTokens(tokens: Record<string, MCPToken>): Promise<void> {
+  try {
+    const storage: TokenStorage = {
+      tokens,
+      lastUpdated: Date.now()
+    };
+    await fs.writeFile(TOKEN_STORAGE_FILE, JSON.stringify(storage, null, 2));
+  } catch (error) {
+    console.error('Failed to save tokens:', error);
+  }
+}
+
+// Load auth codes from file
+async function loadAuthCodes(): Promise<Record<string, { token_id: string; code_challenge: string; expires_at: number }>> {
+  try {
+    const data = await fs.readFile(AUTH_CODES_FILE, 'utf-8');
+    const storage: AuthCodeStorage = JSON.parse(data);
+    
+    // Clean up expired auth codes (valid for 10 minutes)
+    const now = Date.now();
+    const validCodes: Record<string, { token_id: string; code_challenge: string; expires_at: number }> = {};
+    
+    for (const [code, data] of Object.entries(storage.authCodes)) {
+      if (data.expires_at > now) {
+        validCodes[code] = data;
+      }
+    }
+    
+    // Save cleaned codes back if any were removed
+    if (Object.keys(validCodes).length !== Object.keys(storage.authCodes).length) {
+      await saveAuthCodes(validCodes);
+    }
+    
+    return validCodes;
+  } catch (error) {
+    // File doesn't exist or is invalid, return empty object
+    return {};
+  }
+}
+
+// Save auth codes to file
+async function saveAuthCodes(authCodes: Record<string, { token_id: string; code_challenge: string; expires_at: number }>): Promise<void> {
+  try {
+    const storage: AuthCodeStorage = {
+      authCodes,
+      lastUpdated: Date.now()
+    };
+    await fs.writeFile(AUTH_CODES_FILE, JSON.stringify(storage, null, 2));
+  } catch (error) {
+    console.error('Failed to save auth codes:', error);
+  }
+}
 
 async function storeToken(token: MCPToken) {
-  tokens.set(token.id, token);
+  const tokens = await loadTokens();
+  tokens[token.id] = token;
+  await saveTokens(tokens);
+  console.log(`Token stored persistently for user ${token.user_info.blog_id}`);
 }
 
 async function getToken(id: string): Promise<MCPToken | null> {
-  return tokens.get(id) || null;
+  const tokens = await loadTokens();
+  return tokens[id] || null;
 }
 
 async function storeAuthCode(code: string, tokenId: string, codeChallenge: string) {
-  authCodes.set(code, { token_id: tokenId, code_challenge: codeChallenge });
+  const authCodes = await loadAuthCodes();
+  authCodes[code] = { 
+    token_id: tokenId, 
+    code_challenge: codeChallenge,
+    expires_at: Date.now() + 600000 // 10 minutes
+  };
+  await saveAuthCodes(authCodes);
 }
 
 async function getAuthCode(code: string) {
-  return authCodes.get(code) || null;
+  const authCodes = await loadAuthCodes();
+  return authCodes[code] || null;
 }
 
 async function deleteAuthCode(code: string) {
-  authCodes.delete(code);
+  const authCodes = await loadAuthCodes();
+  delete authCodes[code];
+  await saveAuthCodes(authCodes);
 }

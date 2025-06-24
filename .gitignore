@@ -44,3 +44,7 @@ mcp-server.log
 # Service management files
 .service.pid
 auth-service.log
+
+# Web app persistent storage files
+.wp-auth-tokens.json
+.wp-auth-codes.json
