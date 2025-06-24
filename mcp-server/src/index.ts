@@ -33,12 +33,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   
   const authToken = request.params._meta?.auth_token;
-  if (!authToken) {
+  if (!authToken || typeof authToken !== 'string') {
     throw new Error('Authentication required');
   }
 
   const tokenInfo = await validateToken(authToken);
-  if (!tokenInfo.valid) {
+  if (!tokenInfo.valid || !tokenInfo.wordpress_token) {
     throw new Error('Invalid authentication token');
   }
 
