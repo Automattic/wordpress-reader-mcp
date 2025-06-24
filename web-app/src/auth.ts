@@ -2,7 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import fetch from 'node-fetch';
-import { TokenInfo, MCPToken } from '../../shared/types.js';
+import { TokenInfo, MCPToken } from './types.js';
 
 const router = Router();
 const pendingStates = new Map<string, { 
