@@ -1,0 +1,21 @@
+{
+  "name": "wordpress-reader-mcp",
+  "version": "1.0.0",
+  "description": "WordPress Reader integration for Claude Desktop",
+  "main": "setup.js",
+  "scripts": {
+    "setup": "node setup.js",
+    "start-auth": "cd web-app && npm run dev",
+    "build-all": "cd web-app && npm run build && cd ../mcp-server && npm run build",
+    "help": "echo 'Run: npm run setup - to set up WordPress Reader for Claude Desktop'"
+  },
+  "keywords": [
+    "wordpress",
+    "claude",
+    "mcp",
+    "reader",
+    "notifications"
+  ],
+  "author": "WordPress Reader MCP",
+  "license": "MIT"
+}
