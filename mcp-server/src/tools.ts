@@ -282,4 +282,136 @@ export const readerTools: Record<string, Tool> = {
       return callWordPressAPI(`/rest/v1.2/read/a8c?${params}`, token);
     },
   },
+
+  // Notifications API endpoints
+  getNotifications: {
+    description: 'Get a list of user notifications in reverse chronological order',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        number: {
+          type: 'number',
+          description: 'Number of notifications to return (max 99, default 9)',
+        },
+        unread: {
+          type: 'boolean',
+          description: 'Return only unread notifications',
+        },
+        read: {
+          type: 'boolean',
+          description: 'Return only read notifications',
+        },
+        type: {
+          type: 'string',
+          description: 'Filter by notification type (e.g., comment, like, follow)',
+        },
+        since: {
+          type: 'number',
+          description: 'Return notifications since this UNIX timestamp',
+        },
+        before: {
+          type: 'number',
+          description: 'Return notifications before this UNIX timestamp',
+        },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated list of specific fields to return',
+        },
+        ids: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'Array of specific notification IDs to return',
+        },
+      },
+    },
+    handler: async (args, token) => {
+      const params = new URLSearchParams();
+      
+      if (args.number) params.append('number', Math.min(args.number, 99).toString());
+      if (args.unread !== undefined) params.append('unread', args.unread.toString());
+      if (args.read !== undefined) params.append('read', args.read.toString());
+      if (args.type) params.append('type', args.type);
+      if (args.since) params.append('since', args.since.toString());
+      if (args.before) params.append('before', args.before.toString());
+      if (args.fields) params.append('fields', args.fields);
+      if (args.ids && args.ids.length > 0) {
+        args.ids.forEach((id: number) => params.append('ids[]', id.toString()));
+      }
+      
+      return callWordPressAPI(`/notifications?${params}`, token);
+    },
+  },
+
+  markNotificationsSeen: {
+    description: 'Mark notifications as seen by setting the timestamp of the most recently seen notification',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        time: {
+          type: 'number',
+          description: 'UNIX timestamp of the most recently seen notification',
+        },
+      },
+      required: ['time'],
+    },
+    handler: async (args, token) => {
+      return callWordPressAPI('/notifications/seen', token, 'POST', {
+        time: args.time,
+      });
+    },
+  },
+
+  markNotificationsRead: {
+    description: 'Mark a set of notifications as read',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        counts: {
+          type: 'object',
+          description: 'Object with notification IDs as keys and counts as values (e.g., {"1621046109": 1})',
+        },
+        notifications: {
+          type: 'array',
+          items: { type: 'number' },
+          description: 'Array of notification IDs to mark as read',
+        },
+      },
+    },
+    handler: async (args, token) => {
+      let body: any = {};
+      
+      if (args.counts) {
+        body.counts = args.counts;
+      } else if (args.notifications && args.notifications.length > 0) {
+        // Convert array of IDs to counts format
+        body.counts = {};
+        args.notifications.forEach((id: number) => {
+          body.counts[id] = 1;
+        });
+      }
+      
+      return callWordPressAPI('/notifications/read', token, 'POST', body);
+    },
+  },
+
+  getUnreadNotificationsCount: {
+    description: 'Get count of unread notifications',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+    handler: async (args, token) => {
+      // Get unread notifications with minimal fields to count them
+      const result = await callWordPressAPI('/notifications?unread=true&fields=id&number=99', token);
+      
+      if (result && result.notes) {
+        return {
+          unread_count: result.notes.length,
+          total_count: result.total || result.notes.length,
+        };
+      }
+      
+      return { unread_count: 0, total_count: 0 };
+    },
+  },
 };
