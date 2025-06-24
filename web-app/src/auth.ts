@@ -20,6 +20,30 @@ setInterval(() => {
   }
 }, 60000); // Every minute
 
+// Test page for manual OAuth testing
+router.get('/test', (req, res) => {
+  const testState = crypto.randomBytes(16).toString('base64url');
+  const codeVerifier = crypto.randomBytes(32).toString('base64url');
+  const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+  
+  res.send(`
+    <html>
+      <body>
+        <h2>WordPress OAuth Test</h2>
+        <p>Click the link below to test the OAuth flow:</p>
+        <a href="/auth/authorize?code_challenge=${codeChallenge}&code_challenge_method=S256&state=${testState}&redirect_uri=http://localhost:3000/callback">
+          Start OAuth Flow
+        </a>
+        <hr>
+        <p><strong>Test Parameters:</strong></p>
+        <p>State: <code>${testState}</code></p>
+        <p>Code Verifier: <code>${codeVerifier}</code></p>
+        <p>Code Challenge: <code>${codeChallenge}</code></p>
+      </body>
+    </html>
+  `);
+});
+
 // Authorization endpoint
 router.get('/authorize', (req, res) => {
   const { code_challenge, code_challenge_method, redirect_uri, state } = req.query;
@@ -93,7 +117,30 @@ router.get('/callback', async (req, res) => {
     const authCode = crypto.randomBytes(32).toString('base64url');
     await storeAuthCode(authCode, mcpToken.id, stateData.code_challenge);
 
-    res.redirect(`mcp://auth/callback?code=${authCode}&state=${state}`);
+    // Check if this is a browser test vs MCP client
+    const userAgent = req.headers['user-agent'] || '';
+    const isBrowserTest = userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari');
+    
+    if (isBrowserTest) {
+      // For browser testing, show the authorization code
+      res.send(`
+        <html>
+          <body>
+            <h2>OAuth Authentication Successful! ✅</h2>
+            <p><strong>Authorization Code:</strong> <code>${authCode}</code></p>
+            <p><strong>State:</strong> <code>${state}</code></p>
+            <p><strong>WordPress Token:</strong> <code>${mcpToken.wordpress_token}</code></p>
+            <p><strong>Blog ID:</strong> ${mcpToken.user_info.blog_id}</p>
+            <p><strong>Blog URL:</strong> ${mcpToken.user_info.blog_url}</p>
+            <hr>
+            <p><em>This page is for testing. In production, Claude will handle this redirect automatically.</em></p>
+          </body>
+        </html>
+      `);
+    } else {
+      // For MCP client, use the custom scheme
+      res.redirect(`mcp://auth/callback?code=${authCode}&state=${state}`);
+    }
   } catch (error) {
     console.error('OAuth error:', error);
     res.status(500).send('Authentication failed');
