@@ -7,8 +7,11 @@ This folder contains a complete WordPress.com integration for Claude Desktop wit
 - **🔐 OAuth Authentication** - Secure login with WordPress.com
 - **📖 Reader API** - Access your WordPress feed, follows, tags
 - **🔔 Notifications API** - Check and manage notifications  
+- **💬 Comments API** - Read, create, and manage comments
+- **📝 Posts API** - Complete post management (CRUD operations)
 - **🏢 A8C Content** - Get Automattic company posts
 - **🤖 Background Auth** - No manual token management needed
+- **🔒 Security Hardened** - Localhost-only access with shared secrets
 
 ## 🎯 Files Created
 

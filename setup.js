@@ -163,14 +163,17 @@ async function getWordPressCredentials() {
   return { clientId: clientId.trim(), clientSecret: clientSecret.trim() };
 }
 
-// Create environment file
+// Create environment files for both web-app and mcp-server
 function createEnvironmentFile(credentials) {
-  const envPath = 'web-app/.env';
+  const webAppEnvPath = 'web-app/.env';
+  const mcpServerEnvPath = 'mcp-server/.env';
   
   // If credentials is null, we're using existing file
   if (credentials === null) {
-    if (fs.existsSync(envPath)) {
-      logSuccess('Using existing environment configuration');
+    if (fs.existsSync(webAppEnvPath)) {
+      logSuccess('Using existing web-app environment configuration');
+      // Still need to ensure MCP server env exists and has shared secret
+      ensureMCPServerEnvironment();
       return;
     } else {
       logError('Expected existing .env file but it was not found');
@@ -181,7 +184,11 @@ function createEnvironmentFile(credentials) {
   log('\n⚙️  Creating environment configuration...', 'cyan');
   
   const jwtSecret = crypto.randomBytes(32).toString('base64');
-  const envContent = `# WordPress OAuth Application Credentials
+  const mcpSharedSecret = crypto.randomBytes(32).toString('hex');
+  
+  // Create web-app .env file
+  const webAppEnvContent = `# WordPress OAuth Application Credentials
+# Get these from https://developer.wordpress.com/apps/
 WORDPRESS_CLIENT_ID=${credentials.clientId}
 WORDPRESS_CLIENT_SECRET=${credentials.clientSecret}
 
@@ -191,18 +198,92 @@ REDIRECT_URI=http://localhost:3000/auth/callback
 # Server Configuration
 PORT=3000
 
-# Security - Auto-generated secure JWT secret
+# Security
+# Generate a secure random string for JWT signing
+# You can use: openssl rand -base64 32
 JWT_SECRET=${jwtSecret}
 
-# MCP Server URL
+# MCP Server URL (where the MCP server will be running)
 MCP_SERVER_URL=http://localhost:3001
+
+# MCP Security - Shared secret for MCP server authentication
+# Generate with: openssl rand -hex 32
+MCP_SHARED_SECRET=${mcpSharedSecret}
+`;
+
+  // Create mcp-server .env file
+  const mcpServerEnvContent = `AUTH_SERVER_URL=http://localhost:3000
+MCP_SHARED_SECRET=${mcpSharedSecret}
 `;
 
   try {
-    fs.writeFileSync(envPath, envContent);
-    logSuccess('Environment configuration created');
+    fs.writeFileSync(webAppEnvPath, webAppEnvContent);
+    logSuccess('Web-app environment configuration created');
+    
+    fs.writeFileSync(mcpServerEnvPath, mcpServerEnvContent);
+    logSuccess('MCP server environment configuration created');
+    
+    // Store the shared secret for Claude Desktop configuration
+    global.setupMCPSharedSecret = mcpSharedSecret;
   } catch (error) {
-    logError('Failed to create environment file');
+    logError('Failed to create environment files');
+    logError(error.message);
+    process.exit(1);
+  }
+}
+
+// Ensure MCP server environment exists (for existing setup scenario)
+function ensureMCPServerEnvironment() {
+  const mcpServerEnvPath = 'mcp-server/.env';
+  const webAppEnvPath = 'web-app/.env';
+  
+  let mcpSharedSecret = null;
+  
+  // Try to read existing shared secret from web-app .env
+  if (fs.existsSync(webAppEnvPath)) {
+    try {
+      const webAppEnvContent = fs.readFileSync(webAppEnvPath, 'utf8');
+      const secretMatch = webAppEnvContent.match(/MCP_SHARED_SECRET=(.+)/);
+      if (secretMatch) {
+        mcpSharedSecret = secretMatch[1].trim();
+      }
+    } catch (error) {
+      // Continue without existing secret
+    }
+  }
+  
+  // Generate new secret if none found
+  if (!mcpSharedSecret) {
+    mcpSharedSecret = crypto.randomBytes(32).toString('hex');
+    
+    // Add to web-app .env file
+    try {
+      const webAppEnvContent = fs.readFileSync(webAppEnvPath, 'utf8');
+      if (!webAppEnvContent.includes('MCP_SHARED_SECRET=')) {
+        const updatedContent = webAppEnvContent + `\n# MCP Security - Shared secret for MCP server authentication
+# Generate with: openssl rand -hex 32
+MCP_SHARED_SECRET=${mcpSharedSecret}\n`;
+        fs.writeFileSync(webAppEnvPath, updatedContent);
+        logSuccess('Added MCP shared secret to web-app environment');
+      }
+    } catch (error) {
+      logWarning('Could not update web-app .env file with shared secret');
+    }
+  }
+  
+  // Create or update MCP server .env file
+  const mcpServerEnvContent = `AUTH_SERVER_URL=http://localhost:3000
+MCP_SHARED_SECRET=${mcpSharedSecret}
+`;
+  
+  try {
+    fs.writeFileSync(mcpServerEnvPath, mcpServerEnvContent);
+    logSuccess('MCP server environment configuration ensured');
+    
+    // Store the shared secret for Claude Desktop configuration
+    global.setupMCPSharedSecret = mcpSharedSecret;
+  } catch (error) {
+    logError('Failed to create MCP server environment file');
     logError(error.message);
     process.exit(1);
   }
@@ -251,7 +332,7 @@ function buildApplications() {
 }
 
 // Check if Claude Desktop is already configured
-function checkClaudeConfiguration() {
+function checkClaudeConfiguration(requiredSecret) {
   const configPath = getClaudeConfigPath();
   
   if (fs.existsSync(configPath)) {
@@ -260,7 +341,16 @@ function checkClaudeConfiguration() {
       const config = JSON.parse(configContent);
       
       if (config.mcpServers && config.mcpServers['wordpress-reader']) {
-        return true;
+        // If no secret required, just check for existence
+        if (!requiredSecret) {
+          return true;
+        }
+        
+        // Check if the configuration includes the required shared secret
+        const wpReader = config.mcpServers['wordpress-reader'];
+        if (wpReader.env && wpReader.env.MCP_SHARED_SECRET === requiredSecret) {
+          return true;
+        }
       }
     } catch (error) {
       // Ignore parse errors, will reconfigure
@@ -280,8 +370,32 @@ function configureClaudeDesktop() {
   
   logInfo(`Claude config file: ${configPath}`);
   
-  // Check if already configured
-  if (checkClaudeConfiguration()) {
+  // Get the MCP shared secret
+  let mcpSharedSecret = global.setupMCPSharedSecret;
+  
+  // If not available from setup, try to read from environment files
+  if (!mcpSharedSecret) {
+    try {
+      const webAppEnvPath = 'web-app/.env';
+      if (fs.existsSync(webAppEnvPath)) {
+        const webAppEnvContent = fs.readFileSync(webAppEnvPath, 'utf8');
+        const secretMatch = webAppEnvContent.match(/MCP_SHARED_SECRET=(.+)/);
+        if (secretMatch) {
+          mcpSharedSecret = secretMatch[1].trim();
+        }
+      }
+    } catch (error) {
+      logWarning('Could not read MCP shared secret from environment files');
+    }
+  }
+  
+  if (!mcpSharedSecret) {
+    logError('MCP shared secret not available - this is required for security');
+    return false;
+  }
+  
+  // Check if already configured with correct secret
+  if (checkClaudeConfiguration(mcpSharedSecret)) {
     logSuccess('WordPress Reader is already configured in Claude Desktop');
     return true;
   }
@@ -300,12 +414,13 @@ function configureClaudeDesktop() {
       config.mcpServers = {};
     }
     
-    // Add our WordPress Reader server
+    // Add our WordPress Reader server with security
     config.mcpServers['wordpress-reader'] = {
       command: 'node',
       args: [mcpServerPath],
       env: {
-        AUTH_SERVER_URL: 'http://localhost:3000'
+        AUTH_SERVER_URL: 'http://localhost:3000',
+        MCP_SHARED_SECRET: mcpSharedSecret
       }
     };
     
@@ -317,7 +432,7 @@ function configureClaudeDesktop() {
     
     // Write updated config
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    logSuccess('Claude Desktop configured successfully');
+    logSuccess('Claude Desktop configured successfully with security settings');
     
     return true;
   } catch (error) {
@@ -333,6 +448,30 @@ function showManualConfig() {
   const mcpServerPath = path.join(currentDir, 'mcp-server/dist/index.js');
   const configPath = getClaudeConfigPath();
   
+  // Get the MCP shared secret
+  let mcpSharedSecret = global.setupMCPSharedSecret;
+  
+  // If not available from setup, try to read from environment files
+  if (!mcpSharedSecret) {
+    try {
+      const webAppEnvPath = 'web-app/.env';
+      if (fs.existsSync(webAppEnvPath)) {
+        const webAppEnvContent = fs.readFileSync(webAppEnvPath, 'utf8');
+        const secretMatch = webAppEnvContent.match(/MCP_SHARED_SECRET=(.+)/);
+        if (secretMatch) {
+          mcpSharedSecret = secretMatch[1].trim();
+        }
+      }
+    } catch (error) {
+      // Continue without secret
+    }
+  }
+  
+  if (!mcpSharedSecret) {
+    mcpSharedSecret = 'YOUR_MCP_SHARED_SECRET_HERE';
+    logWarning('Could not determine MCP shared secret - please check your .env files');
+  }
+  
   log('\n📋 Manual Claude Desktop Configuration', 'yellow');
   log('Please add this to your Claude Desktop configuration file:');
   log(`File location: ${configPath}`, 'cyan');
@@ -346,7 +485,8 @@ function showManualConfig() {
       "command": "node",
       "args": ["${mcpServerPath}"],
       "env": {
-        "AUTH_SERVER_URL": "http://localhost:3000"
+        "AUTH_SERVER_URL": "http://localhost:3000",
+        "MCP_SHARED_SECRET": "${mcpSharedSecret}"
       }
     }
   }
@@ -356,6 +496,10 @@ function showManualConfig() {
   log('');
   log('If the file doesn\'t exist, create it with the content above.', 'yellow');
   log('If it exists, add the "wordpress-reader" entry to the existing "mcpServers" object.', 'yellow');
+  if (mcpSharedSecret === 'YOUR_MCP_SHARED_SECRET_HERE') {
+    log('');
+    logWarning('IMPORTANT: Replace YOUR_MCP_SHARED_SECRET_HERE with the actual secret from web-app/.env');
+  }
 }
 
 // Start authentication process
@@ -476,13 +620,31 @@ async function main() {
     log('');
     logSuccess('WordPress Reader is now configured for Claude Desktop');
     logSuccess('Background authentication service is running');
+    logSuccess('Security hardening with shared secrets is enabled');
+    log('');
+    log('🔒 Security Features:', 'cyan');
+    log('• Localhost-only access to authentication endpoints');
+    log('• Shared secret authentication between MCP server and auth service');
+    log('• Rate limiting on sensitive endpoints');
+    log('• Persistent token storage with automatic cleanup');
+    log('');
+    log('⚠️  IMPORTANT: You must restart Claude Desktop completely', 'yellow');
+    log('   for the new security configuration to take effect!', 'yellow');
     log('');
     log('Next steps:', 'cyan');
-    log('1. Restart Claude Desktop completely');
-    log('2. Try these commands in Claude:');
+    log('1. 🔄 Restart Claude Desktop completely (Quit and reopen)');
+    log('2. ✅ Try these commands in Claude:');
     log('   • "Show me my WordPress Reader feed"');
     log('   • "How many unread notifications do I have?"');
-    log('   • "Get posts from the technology tag"');
+    log('   • "Get posts tagged with technology"');
+    log('   • "Create a new blog post"');
+    log('   • "Show comments on my latest post"');
+    log('');
+    log('📊 Available APIs (37 tools):', 'cyan');
+    log('• Reader API: Feed management, following, tags');
+    log('• Notifications API: Check and manage notifications');
+    log('• Comments API: Read, create, and manage comments');
+    log('• Posts API: Complete CRUD operations for posts');
     log('');
     log('Service management:', 'cyan');
     log('• Check status: npm run service:status');

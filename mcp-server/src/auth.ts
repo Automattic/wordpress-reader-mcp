@@ -135,8 +135,17 @@ export async function getBackgroundToken(): Promise<string | null> {
     }
 
     // Check if there's a current valid session in the auth server
+    const mcpSecret = process.env.MCP_SHARED_SECRET;
+    if (!mcpSecret) {
+      log('MCP_SHARED_SECRET not configured - cannot access secured endpoints');
+      return null;
+    }
+
     const response = await fetch(`${AUTH_SERVER_URL}/auth/current-token`, {
       method: 'GET',
+      headers: {
+        'X-MCP-Secret': mcpSecret
+      }
     });
 
     if (response.ok) {

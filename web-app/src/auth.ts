@@ -291,8 +291,55 @@ router.get('/validate', async (req, res) => {
   }
 });
 
-// Helper endpoint to get WordPress token for MCP configuration
-router.get('/wordpress-token/:auth_code', async (req, res) => {
+// Security middleware for MCP server endpoints
+const validateMCPAccess = (req: any, res: any, next: any) => {
+  // 1. Restrict to localhost only
+  const clientIP = req.ip || req.socket?.remoteAddress || 'unknown';
+  const isLocalhost = clientIP === '127.0.0.1' || 
+                     clientIP === '::1' || 
+                     clientIP === '::ffff:127.0.0.1' ||
+                     clientIP.startsWith('127.') ||
+                     clientIP === 'localhost';
+  
+  if (!isLocalhost) {
+    console.warn(`Unauthorized access attempt to MCP endpoint from IP: ${clientIP}`);
+    return res.status(403).json({ error: 'Access denied - localhost only' });
+  }
+  
+  // 2. Check for MCP server shared secret
+  const mcpSecret = req.headers['x-mcp-secret'];
+  const expectedSecret = process.env.MCP_SHARED_SECRET || crypto.randomBytes(32).toString('hex');
+  
+  if (!mcpSecret || mcpSecret !== expectedSecret) {
+    console.warn(`Invalid MCP secret provided from IP: ${clientIP}`);
+    return res.status(401).json({ error: 'Invalid MCP authentication' });
+  }
+  
+  // 3. Rate limiting - max 10 requests per minute per IP
+  const now = Date.now();
+  const rateLimitKey = `mcp_rate_${clientIP}`;
+  
+  // Use module-level rate limiting instead of global
+  if (!(global as any).mcpRateLimit) {
+    (global as any).mcpRateLimit = new Map();
+  }
+  
+  const requests = (global as any).mcpRateLimit.get(rateLimitKey) || [];
+  const recentRequests = requests.filter((time: number) => now - time < 60000); // Last minute
+  
+  if (recentRequests.length >= 10) {
+    console.warn(`Rate limit exceeded for IP: ${clientIP}`);
+    return res.status(429).json({ error: 'Rate limit exceeded' });
+  }
+  
+  recentRequests.push(now);
+  (global as any).mcpRateLimit.set(rateLimitKey, recentRequests);
+  
+  next();
+};
+
+// Helper endpoint to get WordPress token for MCP configuration (SECURED)
+router.get('/wordpress-token/:auth_code', validateMCPAccess, async (req, res) => {
   const { auth_code } = req.params;
   
   try {
@@ -317,8 +364,8 @@ router.get('/wordpress-token/:auth_code', async (req, res) => {
   }
 });
 
-// Background authentication endpoint for MCP server
-router.get('/current-token', async (_req, res) => {
+// Background authentication endpoint for MCP server (SECURED)
+router.get('/current-token', validateMCPAccess, async (req, res) => {
   try {
     // Get the most recent valid token from persistent storage
     const tokens = await loadTokens();
@@ -333,7 +380,8 @@ router.get('/current-token', async (_req, res) => {
     }
     
     if (latestToken) {
-      console.log(`Serving cached token for user ${latestToken.user_info.blog_id}, expires at ${new Date(latestToken.expires_at).toISOString()}`);
+      const clientIP = req.ip || req.socket?.remoteAddress || 'unknown';
+      console.log(`Serving cached token for user ${latestToken.user_info.blog_id} to MCP server (${clientIP}), expires at ${new Date(latestToken.expires_at).toISOString()}`);
       res.json({
         wordpress_token: latestToken.wordpress_token,
         blog_id: latestToken.user_info.blog_id,
@@ -341,7 +389,7 @@ router.get('/current-token', async (_req, res) => {
         expires_at: latestToken.expires_at
       });
     } else {
-      console.log('No valid cached token found');
+      console.log('No valid cached token found for MCP server request');
       res.status(404).json({ error: 'No valid token found' });
     }
   } catch (error) {
