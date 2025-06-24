@@ -290,6 +290,35 @@ router.get('/wordpress-token/:auth_code', async (req, res) => {
   }
 });
 
+// Background authentication endpoint for MCP server
+router.get('/current-token', async (_req, res) => {
+  try {
+    // Get the most recent valid token
+    let latestToken: MCPToken | null = null;
+    let latestTimestamp = 0;
+    
+    for (const token of tokens.values()) {
+      if (token.expires_at > Date.now() && token.expires_at > latestTimestamp) {
+        latestToken = token;
+        latestTimestamp = token.expires_at;
+      }
+    }
+    
+    if (latestToken) {
+      res.json({
+        wordpress_token: latestToken.wordpress_token,
+        blog_id: latestToken.user_info.blog_id,
+        blog_url: latestToken.user_info.blog_url,
+        expires_at: latestToken.expires_at
+      });
+    } else {
+      res.status(404).json({ error: 'No valid token found' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve current token' });
+  }
+});
+
 export const authRouter = router;
 
 // Token storage (implement with Redis in production)

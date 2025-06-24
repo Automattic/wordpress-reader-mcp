@@ -5,7 +5,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { readerTools } from './tools.js';
-import { validateToken } from './auth.js';
+import { validateToken, getBackgroundToken, initiateBackgroundAuth } from './auth.js';
 
 const server = new Server(
   {
@@ -35,21 +35,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // Try multiple authentication methods
   let wordpressToken: string | undefined;
   
-  // Method 1: Direct WordPress token from environment
-  if (process.env.WORDPRESS_ACCESS_TOKEN) {
+  // Method 1: Background authentication - get fresh token from auth server
+  try {
+    const bgToken = await getBackgroundToken();
+    if (bgToken) {
+      wordpressToken = bgToken;
+      console.log('Using background authentication with fresh token');
+    }
+  } catch (error) {
+    console.log('Background authentication failed, trying other methods');
+  }
+  
+  // Method 2: Direct WordPress token from environment (fallback)
+  if (!wordpressToken && process.env.WORDPRESS_ACCESS_TOKEN) {
     wordpressToken = process.env.WORDPRESS_ACCESS_TOKEN;
     console.log('Using WordPress token from environment variable');
   } 
-  // Method 2: JWT token from environment (validate through web app)
-  else if (process.env.MCP_AUTH_TOKEN) {
+  // Method 3: JWT token from environment (validate through web app)
+  else if (!wordpressToken && process.env.MCP_AUTH_TOKEN) {
     const tokenInfo = await validateToken(process.env.MCP_AUTH_TOKEN);
     if (tokenInfo.valid && tokenInfo.wordpress_token) {
       wordpressToken = tokenInfo.wordpress_token;
       console.log('Using validated JWT token from environment variable');
     }
   }
-  // Method 3: Token from request meta (for future Claude integration)
-  else if (request.params._meta?.auth_token) {
+  // Method 4: Token from request meta (for future Claude integration)
+  else if (!wordpressToken && request.params._meta?.auth_token) {
     const tokenInfo = await validateToken(request.params._meta.auth_token as string);
     if (tokenInfo.valid && tokenInfo.wordpress_token) {
       wordpressToken = tokenInfo.wordpress_token;
@@ -58,7 +69,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (!wordpressToken) {
-    throw new Error('Authentication required. Please set WORDPRESS_ACCESS_TOKEN or MCP_AUTH_TOKEN environment variable.');
+    // Trigger OAuth flow if no authentication available
+    const authUrl = await initiateBackgroundAuth();
+    throw new Error(`Authentication required. Please visit: ${authUrl}`);
   }
 
   const tool = readerTools[name];

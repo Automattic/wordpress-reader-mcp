@@ -8,7 +8,13 @@ export async function callWordPressAPI(
   method: string = 'GET',
   body?: any
 ): Promise<any> {
-  const url = `${WORDPRESS_API_BASE}${endpoint}`;
+  // Handle both v1.1 and v1.2 endpoints
+  let url: string;
+  if (endpoint.startsWith('/rest/v1.2/')) {
+    url = `https://public-api.wordpress.com${endpoint}`;
+  } else {
+    url = `${WORDPRESS_API_BASE}${endpoint}`;
+  }
   
   const options: any = {
     method,

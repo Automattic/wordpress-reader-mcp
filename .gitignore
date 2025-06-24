@@ -35,3 +35,7 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# MCP auth cache files
+.mcp-auth-cache.json
+.mcp-auth-state.json

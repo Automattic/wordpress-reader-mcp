@@ -243,4 +243,43 @@ export const readerTools: Record<string, Tool> = {
       return callWordPressAPI(`/read/recommendations/mine?${params}`, token);
     },
   },
+
+  getA8CPosts: {
+    description: 'Get Automattic company posts from the A8C stream',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        number: {
+          type: 'number',
+          description: 'Number of posts to return (default: 4)',
+        },
+        orderBy: {
+          type: 'string',
+          description: 'Order posts by (default: date)',
+          enum: ['date', 'popularity'],
+        },
+        content_width: {
+          type: 'number',
+          description: 'Content width in pixels (default: 675)',
+        },
+        lang: {
+          type: 'string',
+          description: 'Language code (default: en)',
+        },
+      },
+    },
+    handler: async (args, token) => {
+      const params = new URLSearchParams({
+        http_envelope: '1',
+        orderBy: args.orderBy || 'date',
+        meta: 'post,discover_original_post',
+        feed_id: '',
+        number: (args.number || 4).toString(),
+        lang: args.lang || 'en',
+        content_width: (args.content_width || 675).toString(),
+      });
+      
+      return callWordPressAPI(`/rest/v1.2/read/a8c?${params}`, token);
+    },
+  },
 };
