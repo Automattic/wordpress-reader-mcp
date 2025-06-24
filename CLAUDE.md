@@ -56,7 +56,7 @@ wordpress-reader-mcp/
 3. **JWT Validation** - Token validation through web app
 4. **Request Metadata** - Token from Claude request context
 
-### 🛠️ WordPress Reader API Tools (26 total)
+### 🛠️ WordPress Reader API Tools (27 total)
 - **Feed Management**: getReaderMenu, getFeed, getFollowingPosts, getLikedPosts
 - **Blog Interaction**: followBlog, unfollowBlog, getFollowingFeeds, getRecommendations  
 - **Tag Management**: getUserTags, subscribeToTag, unsubscribeFromTag, getTagPosts
