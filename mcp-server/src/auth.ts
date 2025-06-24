@@ -18,7 +18,7 @@ export async function validateToken(token: string): Promise<{
       return { valid: false };
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     return data;
   } catch (error) {
     console.error('Token validation error:', error);
