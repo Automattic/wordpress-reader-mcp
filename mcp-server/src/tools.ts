@@ -414,4 +414,275 @@ export const readerTools: Record<string, Tool> = {
       return { unread_count: 0, total_count: 0 };
     },
   },
+
+  // Comments API Tools
+  getPostComments: {
+    description: 'Get comments for a specific post',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        post_id: {
+          type: 'string',
+          description: 'Post ID',
+        },
+        number: {
+          type: 'number',
+          description: 'Number of comments to retrieve (default: 20)',
+        },
+        order: {
+          type: 'string',
+          description: 'Order of comments: ASC or DESC (default: DESC)',
+          enum: ['ASC', 'DESC'],
+        },
+        status: {
+          type: 'string',
+          description: 'Filter by comment status: approved, pending, spam, trash, all (default: approved)',
+          enum: ['approved', 'pending', 'spam', 'trash', 'all'],
+        },
+      },
+      required: ['site', 'post_id'],
+    },
+    handler: async (args, token) => {
+      const params = new URLSearchParams();
+      if (args.number) params.append('number', args.number.toString());
+      if (args.order) params.append('order', args.order);
+      if (args.status) params.append('status', args.status);
+      
+      return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/comments?${params}`, token);
+    },
+  },
+
+  getComment: {
+    description: 'Get a specific comment by ID',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        comment_id: {
+          type: 'string',
+          description: 'Comment ID',
+        },
+      },
+      required: ['site', 'comment_id'],
+    },
+    handler: async (args, token) => {
+      return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}`, token);
+    },
+  },
+
+  createComment: {
+    description: 'Create a new comment on a post',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        post_id: {
+          type: 'string',
+          description: 'Post ID to comment on',
+        },
+        content: {
+          type: 'string',
+          description: 'Comment content',
+        },
+        parent: {
+          type: 'string',
+          description: 'Parent comment ID (for replies)',
+        },
+      },
+      required: ['site', 'post_id', 'content'],
+    },
+    handler: async (args, token) => {
+      const body: any = {
+        content: args.content,
+      };
+      
+      if (args.parent) {
+        body.parent = args.parent;
+      }
+      
+      return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/comments/new`, token, 'POST', body);
+    },
+  },
+
+  replyToComment: {
+    description: 'Reply to an existing comment',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        comment_id: {
+          type: 'string',
+          description: 'Comment ID to reply to',
+        },
+        content: {
+          type: 'string',
+          description: 'Reply content',
+        },
+      },
+      required: ['site', 'comment_id', 'content'],
+    },
+    handler: async (args, token) => {
+      return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}/replies/new`, token, 'POST', {
+        content: args.content,
+      });
+    },
+  },
+
+  likeComment: {
+    description: 'Like a comment',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        comment_id: {
+          type: 'string',
+          description: 'Comment ID to like',
+        },
+      },
+      required: ['site', 'comment_id'],
+    },
+    handler: async (args, token) => {
+      return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}/likes/new`, token, 'POST');
+    },
+  },
+
+  unlikeComment: {
+    description: 'Unlike a comment',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        comment_id: {
+          type: 'string',
+          description: 'Comment ID to unlike',
+        },
+      },
+      required: ['site', 'comment_id'],
+    },
+    handler: async (args, token) => {
+      return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}/likes/mine/delete`, token, 'POST');
+    },
+  },
+
+  getSiteComments: {
+    description: 'Get all comments for a site',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        number: {
+          type: 'number',
+          description: 'Number of comments to retrieve (default: 20)',
+        },
+        order: {
+          type: 'string',
+          description: 'Order of comments: ASC or DESC (default: DESC)',
+          enum: ['ASC', 'DESC'],
+        },
+        status: {
+          type: 'string',
+          description: 'Filter by comment status: approved, pending, spam, trash, all (default: approved)',
+          enum: ['approved', 'pending', 'spam', 'trash', 'all'],
+        },
+        type: {
+          type: 'string',
+          description: 'Filter by comment type: comment, trackback, pingback, review (default: comment)',
+          enum: ['comment', 'trackback', 'pingback', 'review'],
+        },
+      },
+      required: ['site'],
+    },
+    handler: async (args, token) => {
+      const params = new URLSearchParams();
+      if (args.number) params.append('number', args.number.toString());
+      if (args.order) params.append('order', args.order);
+      if (args.status) params.append('status', args.status);
+      if (args.type) params.append('type', args.type);
+      
+      return callWordPressAPI(`/sites/${args.site}/comments?${params}`, token);
+    },
+  },
+
+  updateComment: {
+    description: 'Update a comment (if you have permission)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        comment_id: {
+          type: 'string',
+          description: 'Comment ID to update',
+        },
+        content: {
+          type: 'string',
+          description: 'New comment content',
+        },
+        status: {
+          type: 'string',
+          description: 'Comment status: approved, pending, spam, trash',
+          enum: ['approved', 'pending', 'spam', 'trash'],
+        },
+      },
+      required: ['site', 'comment_id'],
+    },
+    handler: async (args, token) => {
+      const body: any = {};
+      
+      if (args.content) {
+        body.content = args.content;
+      }
+      
+      if (args.status) {
+        body.status = args.status;
+      }
+      
+      return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}`, token, 'POST', body);
+    },
+  },
+
+  deleteComment: {
+    description: 'Delete a comment (if you have permission)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        site: {
+          type: 'string',
+          description: 'Site domain or ID',
+        },
+        comment_id: {
+          type: 'string',
+          description: 'Comment ID to delete',
+        },
+      },
+      required: ['site', 'comment_id'],
+    },
+    handler: async (args, token) => {
+      return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}/delete`, token, 'POST');
+    },
+  },
 };

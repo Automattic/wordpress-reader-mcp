@@ -56,12 +56,13 @@ wordpress-reader-mcp/
 3. **JWT Validation** - Token validation through web app
 4. **Request Metadata** - Token from Claude request context
 
-### 🛠️ WordPress Reader API Tools (17 total)
+### 🛠️ WordPress Reader API Tools (26 total)
 - **Feed Management**: getReaderMenu, getFeed, getFollowingPosts, getLikedPosts
 - **Blog Interaction**: followBlog, unfollowBlog, getFollowingFeeds, getRecommendations  
 - **Tag Management**: getUserTags, subscribeToTag, unsubscribeFromTag, getTagPosts
 - **Content Access**: getPost, getA8CPosts (Automattic company posts)
 - **Notifications**: getNotifications, markNotificationsSeen, markNotificationsRead, getUnreadNotificationsCount
+- **Comments**: getPostComments, getComment, createComment, replyToComment, likeComment, unlikeComment, getSiteComments, updateComment, deleteComment
 
 ### 🌐 Web Application Features
 - **OAuth 2.0 PKCE Flow** - Secure authentication with WordPress.com
@@ -183,7 +184,7 @@ curl http://localhost:3000/auth/test      # Test OAuth page
 
 ## Usage in Claude Desktop
 
-After setup, Claude can access WordPress Reader functionality:
+After setup, Claude can access comprehensive WordPress functionality:
 
 ```
 "Show me my WordPress Reader feed"
@@ -192,6 +193,10 @@ After setup, Claude can access WordPress Reader functionality:
 "Follow the blog example.com"
 "Get Automattic company posts"
 "What blogs am I following?"
+"Show me comments on this blog post"
+"Reply to this comment"
+"Like this comment"
+"Get all comments on my site"
 ```
 
 ## Security Features
@@ -213,6 +218,7 @@ After setup, Claude can access WordPress Reader functionality:
 
 ## Recent Updates
 
+- ✅ **Added comprehensive Comments API integration** - Full comment functionality including read, create, reply, like, and manage comments
 - ✅ **Implemented persistent token storage** - Tokens survive web app restarts, eliminating redundant setup authentication
 - ✅ Fixed service stop/restart functionality with proper process tree cleanup
 - ✅ Fixed web app build structure and /auth/test endpoint accessibility  
