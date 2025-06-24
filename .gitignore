@@ -39,3 +39,4 @@ coverage/
 # MCP auth cache files
 .mcp-auth-cache.json
 .mcp-auth-state.json
+mcp-server.log

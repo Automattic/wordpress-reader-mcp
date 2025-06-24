@@ -6,6 +6,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { readerTools } from './tools.js';
 import { validateToken, getBackgroundToken, initiateBackgroundAuth } from './auth.js';
+import { log, logError } from './logger.js';
 
 const server = new Server(
   {
@@ -40,23 +41,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const bgToken = await getBackgroundToken();
     if (bgToken) {
       wordpressToken = bgToken;
-      console.log('Using background authentication with fresh token');
+      log('Using background authentication with fresh token');
     }
   } catch (error) {
-    console.log('Background authentication failed, trying other methods');
+    log('Background authentication failed, trying other methods');
   }
   
   // Method 2: Direct WordPress token from environment (fallback)
   if (!wordpressToken && process.env.WORDPRESS_ACCESS_TOKEN) {
     wordpressToken = process.env.WORDPRESS_ACCESS_TOKEN;
-    console.log('Using WordPress token from environment variable');
+    log('Using WordPress token from environment variable');
   } 
   // Method 3: JWT token from environment (validate through web app)
   else if (!wordpressToken && process.env.MCP_AUTH_TOKEN) {
     const tokenInfo = await validateToken(process.env.MCP_AUTH_TOKEN);
     if (tokenInfo.valid && tokenInfo.wordpress_token) {
       wordpressToken = tokenInfo.wordpress_token;
-      console.log('Using validated JWT token from environment variable');
+      log('Using validated JWT token from environment variable');
     }
   }
   // Method 4: Token from request meta (for future Claude integration)
@@ -64,7 +65,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const tokenInfo = await validateToken(request.params._meta.auth_token as string);
     if (tokenInfo.valid && tokenInfo.wordpress_token) {
       wordpressToken = tokenInfo.wordpress_token;
-      console.log('Using token from request metadata');
+      log('Using token from request metadata');
     }
   }
 

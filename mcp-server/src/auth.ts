@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
+import { log, logError } from './logger.js';
 
 const AUTH_SERVER_URL = process.env.AUTH_SERVER_URL || 'http://localhost:3000';
 const TOKEN_CACHE_FILE = path.join(process.cwd(), '.mcp-auth-cache.json');
@@ -31,7 +32,7 @@ export async function validateToken(token: string): Promise<{
     const data = await response.json() as any;
     return data;
   } catch (error) {
-    console.error('Token validation error:', error);
+    logError('Token validation error', error);
     return { valid: false };
   }
 }
@@ -41,7 +42,7 @@ export async function getBackgroundToken(): Promise<string | null> {
     // Try to load cached token first
     const cachedToken = await loadCachedToken();
     if (cachedToken && cachedToken.expires_at > Date.now()) {
-      console.log('Using cached WordPress token');
+      log('Using cached WordPress token');
       return cachedToken.wordpress_token;
     }
 
@@ -65,7 +66,7 @@ export async function getBackgroundToken(): Promise<string | null> {
 
     return null;
   } catch (error) {
-    console.error('Background token retrieval error:', error);
+    logError('Background token retrieval error', error);
     return null;
   }
 }
@@ -90,7 +91,7 @@ export async function initiateBackgroundAuth(): Promise<string> {
 
     return authUrl;
   } catch (error) {
-    console.error('Background auth initiation error:', error);
+    logError('Background auth initiation error', error);
     return `${AUTH_SERVER_URL}/auth/test`;
   }
 }
@@ -108,7 +109,7 @@ async function saveCachedToken(token: CachedAuth): Promise<void> {
   try {
     await fs.writeFile(TOKEN_CACHE_FILE, JSON.stringify(token, null, 2));
   } catch (error) {
-    console.error('Failed to cache token:', error);
+    logError('Failed to cache token', error);
   }
 }
 
@@ -117,6 +118,6 @@ async function saveAuthState(state: { codeVerifier: string; state: string }): Pr
     const stateFile = path.join(process.cwd(), '.mcp-auth-state.json');
     await fs.writeFile(stateFile, JSON.stringify(state, null, 2));
   } catch (error) {
-    console.error('Failed to save auth state:', error);
+    logError('Failed to save auth state', error);
   }
 }

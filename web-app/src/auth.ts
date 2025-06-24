@@ -82,7 +82,7 @@ router.get('/authorize', (req, res) => {
     client_id: process.env.WORDPRESS_CLIENT_ID!,
     redirect_uri: process.env.REDIRECT_URI!,
     response_type: 'code',
-    scope: 'read',
+    scope: 'global',
     state: state as string
   });
 
