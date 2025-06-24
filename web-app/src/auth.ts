@@ -31,7 +31,7 @@ router.get('/test', (req, res) => {
       <body>
         <h2>WordPress OAuth Test</h2>
         <p>Click the link below to test the OAuth flow:</p>
-        <a href="/auth/authorize?code_challenge=${codeChallenge}&code_challenge_method=S256&state=${testState}&redirect_uri=http://localhost:3000/callback">
+        <a href="/auth/authorize?code_challenge=${codeChallenge}&code_challenge_method=S256&state=${testState}&redirect_uri=http://localhost:3000/auth/callback">
           Start OAuth Flow
         </a>
         <hr>
@@ -54,17 +54,19 @@ router.get('/authorize', (req, res) => {
   }
 
   // Store state with code challenge
+  console.log('Storing state:', state);
   pendingStates.set(state as string, {
     code_challenge: code_challenge as string,
     expires_at: Date.now() + 600000 // 10 minutes
   });
+  console.log('Pending states after store:', Array.from(pendingStates.keys()));
 
   // Redirect to WordPress.com
   const params = new URLSearchParams({
     client_id: process.env.WORDPRESS_CLIENT_ID!,
     redirect_uri: process.env.REDIRECT_URI!,
     response_type: 'code',
-    scope: 'auth',
+    scope: 'read',
     state: state as string
   });
 
@@ -75,10 +77,28 @@ router.get('/authorize', (req, res) => {
 router.get('/callback', async (req, res) => {
   const { code, state } = req.query;
 
+  console.log('Callback received:', { code, state });
+  console.log('Pending states:', Array.from(pendingStates.keys()));
+
   // Verify state
   const stateData = pendingStates.get(state as string);
   if (!stateData) {
-    return res.status(400).send('Invalid state');
+    return res.status(400).send(`
+      <html>
+        <body>
+          <h2>Invalid State Error</h2>
+          <p><strong>Received state:</strong> <code>${state}</code></p>
+          <p><strong>Available states:</strong> <code>${Array.from(pendingStates.keys()).join(', ')}</code></p>
+          <p><strong>Possible causes:</strong></p>
+          <ul>
+            <li>State expired (10 minute timeout)</li>
+            <li>State parameter was modified</li>
+            <li>Multiple OAuth flows running simultaneously</li>
+          </ul>
+          <a href="/auth/test">← Try again</a>
+        </body>
+      </html>
+    `);
   }
 
   try {
@@ -132,6 +152,19 @@ router.get('/callback', async (req, res) => {
             <p><strong>WordPress Token:</strong> <code>${mcpToken.wordpress_token}</code></p>
             <p><strong>Blog ID:</strong> ${mcpToken.user_info.blog_id}</p>
             <p><strong>Blog URL:</strong> ${mcpToken.user_info.blog_url}</p>
+            <hr>
+            <h3>🔧 Configure Claude Desktop</h3>
+            <p>Add this to your Claude Desktop configuration:</p>
+            <pre style="background: #f5f5f5; padding: 10px; border-radius: 5px;">
+"wordpress-reader": {
+  "command": "node",
+  "args": ["/path/to/your/mcp-server/dist/index.js"],
+  "env": {
+    "AUTH_SERVER_URL": "http://localhost:3000",
+    "WORDPRESS_ACCESS_TOKEN": "${mcpToken.wordpress_token}"
+  }
+}</pre>
+            <p><strong>⚠️ Important:</strong> Copy the WordPress token above and add it to your Claude Desktop config, then restart Claude Desktop.</p>
             <hr>
             <p><em>This page is for testing. In production, Claude will handle this redirect automatically.</em></p>
           </body>
@@ -228,6 +261,32 @@ router.get('/validate', async (req, res) => {
     });
   } catch (error) {
     res.status(401).json({ error: 'invalid_token' });
+  }
+});
+
+// Helper endpoint to get WordPress token for MCP configuration
+router.get('/wordpress-token/:auth_code', async (req, res) => {
+  const { auth_code } = req.params;
+  
+  try {
+    const authCodeData = await getAuthCode(auth_code);
+    if (!authCodeData) {
+      return res.status(404).json({ error: 'Authorization code not found' });
+    }
+    
+    const mcpToken = await getToken(authCodeData.token_id);
+    if (!mcpToken) {
+      return res.status(404).json({ error: 'Token not found' });
+    }
+    
+    res.json({
+      wordpress_token: mcpToken.wordpress_token,
+      blog_id: mcpToken.user_info.blog_id,
+      blog_url: mcpToken.user_info.blog_url,
+      expires_at: mcpToken.expires_at
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve token' });
   }
 });
 
