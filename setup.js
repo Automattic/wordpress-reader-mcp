@@ -181,14 +181,14 @@ async function promptForConfidentialityProtection() {
   log('  ⚠️  This may violate privacy policies or confidentiality agreements');
   log('');
   
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-
   return new Promise((resolve) => {
-    rl.question('Enable confidentiality protection? (Y/n): ', (answer) => {
-      rl.close();
+    const localRl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    
+    localRl.question('Enable confidentiality protection? (Y/n): ', (answer) => {
+      localRl.close();
       const enable = answer.toLowerCase() !== 'n';
       
       if (!enable) {
@@ -542,6 +542,45 @@ function showManualConfig() {
   }
 }
 
+// Kill any zombie processes on port 3000
+function killZombieProcesses() {
+  try {
+    const { execSync } = require('child_process');
+    
+    if (os.platform() === 'win32') {
+      // Windows
+      try {
+        const result = execSync('netstat -ano | findstr :3000', { encoding: 'utf8' });
+        const lines = result.split('\n');
+        lines.forEach(line => {
+          const match = line.trim().match(/\s+(\d+)$/);
+          if (match) {
+            const pid = match[1];
+            execSync(`taskkill /pid ${pid} /F`, { stdio: 'ignore' });
+          }
+        });
+      } catch (error) {
+        // No processes found on port 3000
+      }
+    } else {
+      // Unix-like systems
+      try {
+        const result = execSync('lsof -ti:3000', { encoding: 'utf8' });
+        const pids = result.trim().split('\n').filter(p => p);
+        if (pids.length > 0) {
+          logInfo('Cleaning up zombie processes on port 3000...');
+          execSync(`lsof -ti:3000 | xargs kill -9`, { stdio: 'ignore' });
+          logSuccess('Zombie processes cleaned up');
+        }
+      } catch (error) {
+        // No processes found on port 3000
+      }
+    }
+  } catch (error) {
+    // Ignore cleanup errors
+  }
+}
+
 // Start authentication process
 async function startAuthentication() {
   log('\n🔐 Starting authentication process...', 'cyan');
@@ -551,7 +590,8 @@ async function startAuthentication() {
     log('Starting authentication server...');
     const webServer = spawn('npm', ['run', 'dev'], { 
       cwd: 'web-app',
-      stdio: 'pipe'
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: false
     });
     
     // Wait a moment for server to start
@@ -604,8 +644,20 @@ async function startAuthentication() {
       log(`Please manually open: ${authUrl}`, 'cyan');
     }
     
-    await askQuestion('\nPress Enter after you have completed authentication in the browser...');
+    // Create a fresh readline interface for authentication prompt
+    const authRl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
     
+    await new Promise(resolve => {
+      authRl.question('\nPress Enter after you have completed authentication in the browser...', () => {
+        authRl.close();
+        resolve();
+      });
+    });
+    
+    log('Stopping authentication server...');
     // Stop the web server
     webServer.kill();
     logSuccess('Authentication completed');
@@ -648,6 +700,10 @@ async function main() {
     
     // Start the background service
     log('\n🚀 Starting background service...', 'cyan');
+    
+    // Clean up any zombie processes first
+    killZombieProcesses();
+    
     try {
       execSync('node service-manager.js auto-start', { stdio: 'inherit' });
       logSuccess('Background auth service is now running');

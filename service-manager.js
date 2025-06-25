@@ -118,6 +118,19 @@ function startService() {
       logInfo(`Logs: ${LOG_FILE}`);
       logInfo('Service URL: http://localhost:3000');
     } else {
+      // Check if another service is already running on port 3000
+      try {
+        const { execSync } = require('child_process');
+        const result = execSync('lsof -ti:3000', { encoding: 'utf8' });
+        if (result.trim()) {
+          logWarning('Service already started (another process is using port 3000)');
+          logInfo('Service URL: http://localhost:3000');
+          return;
+        }
+      } catch (error) {
+        // No process on port 3000
+      }
+      
       logError('Failed to start service');
       process.exit(1);
     }
