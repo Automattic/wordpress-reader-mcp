@@ -163,8 +163,50 @@ async function getWordPressCredentials() {
   return { clientId: clientId.trim(), clientSecret: clientSecret.trim() };
 }
 
+// Prompt for confidentiality protection setting
+async function promptForConfidentialityProtection() {
+  log('\n🔒 Confidentiality Protection Configuration', 'cyan');
+  log('WordPress.com blogs can have a "p2_confidentiality_disabled" sticker that indicates');
+  log('their content CAN be accessed by AI systems.', 'yellow');
+  log('Blogs WITHOUT this sticker should NOT be accessed by AI.', 'yellow');
+  log('');
+  log('When protection is ENABLED (recommended):', 'green');
+  log('  ✓ Only blogs with the p2_confidentiality_disabled sticker will be accessible');
+  log('  ✓ Blogs without the sticker will be automatically blocked');
+  log('  ✓ This helps prevent accidental exposure of sensitive information');
+  log('');
+  log('When protection is DISABLED:', 'red');
+  log('  ⚠️  ALL blog content will be accessible regardless of confidentiality settings');
+  log('  ⚠️  It is YOUR responsibility to ensure you\'re not parsing sensitive information');
+  log('  ⚠️  This may violate privacy policies or confidentiality agreements');
+  log('');
+  
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise((resolve) => {
+    rl.question('Enable confidentiality protection? (Y/n): ', (answer) => {
+      rl.close();
+      const enable = answer.toLowerCase() !== 'n';
+      
+      if (!enable) {
+        log('\n⚠️  WARNING: Confidentiality protection will be DISABLED', 'red');
+        log('You are responsible for ensuring compliance with all privacy and confidentiality requirements.', 'yellow');
+        log('');
+      } else {
+        log('\n✅ Confidentiality protection will be ENABLED', 'green');
+        log('');
+      }
+      
+      resolve(enable);
+    });
+  });
+}
+
 // Create environment files for both web-app and mcp-server
-function createEnvironmentFile(credentials) {
+function createEnvironmentFile(credentials, enableConfidentialityProtection = true) {
   const webAppEnvPath = 'web-app/.env';
   const mcpServerEnvPath = 'mcp-server/.env';
   
@@ -173,7 +215,7 @@ function createEnvironmentFile(credentials) {
     if (fs.existsSync(webAppEnvPath)) {
       logSuccess('Using existing web-app environment configuration');
       // Still need to ensure MCP server env exists and has shared secret
-      ensureMCPServerEnvironment();
+      ensureMCPServerEnvironment(enableConfidentialityProtection);
       return;
     } else {
       logError('Expected existing .env file but it was not found');
@@ -214,6 +256,7 @@ MCP_SHARED_SECRET=${mcpSharedSecret}
   // Create mcp-server .env file
   const mcpServerEnvContent = `AUTH_SERVER_URL=http://localhost:3000
 MCP_SHARED_SECRET=${mcpSharedSecret}
+DISABLE_CONFIDENTIALITY_CHECK=${enableConfidentialityProtection ? 'false' : 'true'}
 `;
 
   try {
@@ -233,7 +276,7 @@ MCP_SHARED_SECRET=${mcpSharedSecret}
 }
 
 // Ensure MCP server environment exists (for existing setup scenario)
-function ensureMCPServerEnvironment() {
+function ensureMCPServerEnvironment(enableConfidentialityProtection = true) {
   const mcpServerEnvPath = 'mcp-server/.env';
   const webAppEnvPath = 'web-app/.env';
   
@@ -274,6 +317,7 @@ MCP_SHARED_SECRET=${mcpSharedSecret}\n`;
   // Create or update MCP server .env file
   const mcpServerEnvContent = `AUTH_SERVER_URL=http://localhost:3000
 MCP_SHARED_SECRET=${mcpSharedSecret}
+DISABLE_CONFIDENTIALITY_CHECK=${enableConfidentialityProtection ? 'false' : 'true'}
 `;
   
   try {
@@ -484,10 +528,6 @@ function showManualConfig() {
     "wordpress-reader": {
       "command": "node",
       "args": ["${mcpServerPath}"],
-      "env": {
-        "AUTH_SERVER_URL": "http://localhost:3000",
-        "MCP_SHARED_SECRET": "${mcpSharedSecret}"
-      }
     }
   }
 }`;
@@ -589,7 +629,8 @@ async function main() {
     installDependencies();
     
     const credentials = await getWordPressCredentials();
-    createEnvironmentFile(credentials);
+    const enableConfidentialityProtection = await promptForConfidentialityProtection();
+    createEnvironmentFile(credentials, enableConfidentialityProtection);
     buildApplications();
     
     const claudeConfigured = configureClaudeDesktop();

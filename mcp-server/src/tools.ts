@@ -1,9 +1,14 @@
-import { callWordPressAPI } from './wordpress-api.js';
+import { callWordPressAPI, checkBlogConfidentiality } from './wordpress-api.js';
 
 interface Tool {
   description: string;
   inputSchema: Record<string, any>;
   handler: (args: any, token: string) => Promise<any>;
+}
+
+// Helper function to create confidentiality error response
+function createConfidentialityError(site: string): Error {
+  return new Error(`Access to content from ${site} is restricted due to confidentiality settings. This blog does not have the p2_confidentiality_disabled sticker, which means AI access to its content is not permitted.`);
 }
 
 export const readerTools: Record<string, Tool> = {
@@ -52,6 +57,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/read/sites/${args.site}/posts/${args.post_id}`, token);
     },
   },
@@ -200,6 +212,19 @@ export const readerTools: Record<string, Tool> = {
       required: ['site_url'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site_url.includes('.wordpress.com')) {
+        // Extract the domain from the URL
+        try {
+          const url = new URL(args.site_url);
+          const isAccessible = await checkBlogConfidentiality(url.hostname, token);
+          if (!isAccessible) {
+            throw createConfidentialityError(url.hostname);
+          }
+        } catch (error) {
+          // If URL parsing fails, let the API handle it
+        }
+      }
       return callWordPressAPI('/read/following/mine/new', token, 'POST', {
         url: args.site_url,
       });
@@ -219,6 +244,19 @@ export const readerTools: Record<string, Tool> = {
       required: ['site_url'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site_url.includes('.wordpress.com')) {
+        // Extract the domain from the URL
+        try {
+          const url = new URL(args.site_url);
+          const isAccessible = await checkBlogConfidentiality(url.hostname, token);
+          if (!isAccessible) {
+            throw createConfidentialityError(url.hostname);
+          }
+        } catch (error) {
+          // If URL parsing fails, let the API handle it
+        }
+      }
       return callWordPressAPI('/read/following/mine/delete', token, 'POST', {
         url: args.site_url,
       });
@@ -447,6 +485,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const params = new URLSearchParams();
       if (args.number) params.append('number', args.number.toString());
       if (args.order) params.append('order', args.order);
@@ -473,6 +518,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'comment_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}`, token);
     },
   },
@@ -502,6 +554,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id', 'content'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const body: any = {
         content: args.content,
       };
@@ -535,6 +594,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'comment_id', 'content'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}/replies/new`, token, 'POST', {
         content: args.content,
       });
@@ -558,6 +624,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'comment_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}/likes/new`, token, 'POST');
     },
   },
@@ -579,6 +652,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'comment_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}/likes/mine/delete`, token, 'POST');
     },
   },
@@ -615,6 +695,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const params = new URLSearchParams();
       if (args.number) params.append('number', args.number.toString());
       if (args.order) params.append('order', args.order);
@@ -651,6 +738,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'comment_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const body: any = {};
       
       if (args.content) {
@@ -682,6 +776,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'comment_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/comments/${args.comment_id}/delete`, token, 'POST');
     },
   },
@@ -750,6 +851,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'title', 'content'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const body: any = {
         title: args.title,
         content: args.content,
@@ -793,6 +901,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const params = new URLSearchParams();
       if (args.context) params.append('context', args.context);
       
@@ -822,6 +937,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'slug'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const params = new URLSearchParams();
       if (args.context) params.append('context', args.context);
       
@@ -887,6 +1009,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const body: any = {};
       
       // Add only provided fields to update
@@ -922,6 +1051,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/delete`, token, 'POST');
     },
   },
@@ -995,6 +1131,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const params = new URLSearchParams();
       if (args.number) params.append('number', args.number.toString());
       if (args.offset) params.append('offset', args.offset.toString());
@@ -1031,6 +1174,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/likes/new`, token, 'POST');
     },
   },
@@ -1052,6 +1202,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/likes/mine/delete`, token, 'POST');
     },
   },
@@ -1081,6 +1238,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       const params = new URLSearchParams();
       if (args.number) params.append('number', args.number.toString());
       if (args.offset) params.append('offset', args.offset.toString());
@@ -1106,6 +1270,13 @@ export const readerTools: Record<string, Tool> = {
       required: ['site', 'post_id'],
     },
     handler: async (args, token) => {
+      // Check blog confidentiality if it's a WordPress.com site
+      if (args.site.includes('.wordpress.com')) {
+        const isAccessible = await checkBlogConfidentiality(args.site, token);
+        if (!isAccessible) {
+          throw createConfidentialityError(args.site);
+        }
+      }
       return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/likes/mine`, token);
     },
   },

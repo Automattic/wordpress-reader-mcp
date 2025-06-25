@@ -126,9 +126,6 @@ Add this to the `mcpServers` section:
     "wordpress-reader": {
       "command": "node",
       "args": ["FULL_PATH_TO_THIS_FOLDER/mcp-server/dist/index.js"],
-      "env": {
-        "AUTH_SERVER_URL": "http://localhost:3000"
-      }
     }
   }
 }
@@ -271,6 +268,8 @@ You can set these in your shell:
 - Authentication tokens are cached securely
 - No data is sent to third parties
 - All communication is encrypted (HTTPS/TLS)
+- **Confidentiality Protection**: Automatically checks for the `p2_confidentiality_disabled` sticker on WordPress.com blogs; only allows AI access to blogs with this sticker
+  - Set `DISABLE_CONFIDENTIALITY_CHECK=true` in the MCP server environment to disable this protection (not recommended)
 
 ## 📞 Support
 

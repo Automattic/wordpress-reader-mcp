@@ -113,8 +113,17 @@ PORT=3000
 JWT_SECRET=auto_generated_secure_string
 ```
 
-### MCP Server Environment
-- `AUTH_SERVER_URL=http://localhost:3000` (set in Claude config)
+### MCP Server Environment (`mcp-server/.env`)
+```bash
+AUTH_SERVER_URL=http://localhost:3000
+DISABLE_CONFIDENTIALITY_CHECK=false
+MCP_SHARED_SECRET=auto_generated_secure_string
+```
+
+Variables:
+- `AUTH_SERVER_URL` - URL of the authentication web server
+- `DISABLE_CONFIDENTIALITY_CHECK` - Set to 'true' to disable confidentiality protection
+- `MCP_SHARED_SECRET` - Shared secret for MCP server authentication
 - Optional: `WORDPRESS_ACCESS_TOKEN` for direct token access
 
 ## Claude Desktop Configuration
@@ -126,10 +135,7 @@ Automatically added to `~/Library/Application Support/Claude/claude_desktop_conf
   "mcpServers": {
     "wordpress-reader": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp-server/dist/index.js"],
-      "env": {
-        "AUTH_SERVER_URL": "http://localhost:3000"
-      }
+      "args": ["/absolute/path/to/mcp-server/dist/index.js"]
     }
   }
 }
@@ -138,13 +144,14 @@ Automatically added to `~/Library/Application Support/Claude/claude_desktop_conf
 ## Authentication Flow
 
 1. **First Time Setup**: User runs `npm run setup`
-2. **WordPress OAuth**: Browser opens to authenticate with WordPress.com
-3. **Token Storage**: OAuth tokens stored persistently in `.wp-auth-tokens.json`
-4. **Background Service**: Auth service runs constantly on port 3000
-5. **MCP Integration**: Claude Desktop connects to MCP server
-6. **Tool Calls**: MCP server gets fresh tokens from auth service automatically
-7. **Token Persistence**: Tokens survive web app restarts, no re-authentication needed
-8. **API Calls**: Authenticated requests to WordPress.com Reader API
+2. **Confidentiality Configuration**: User chooses whether to enable confidentiality protection
+3. **WordPress OAuth**: Browser opens to authenticate with WordPress.com
+4. **Token Storage**: OAuth tokens stored persistently in `.wp-auth-tokens.json`
+5. **Background Service**: Auth service runs constantly on port 3000
+6. **MCP Integration**: Claude Desktop connects to MCP server
+7. **Tool Calls**: MCP server gets fresh tokens from auth service automatically
+8. **Token Persistence**: Tokens survive web app restarts, no re-authentication needed
+9. **API Calls**: Authenticated requests to WordPress.com Reader API with confidentiality checks
 
 ## Troubleshooting
 
@@ -207,6 +214,7 @@ After setup, Claude can access comprehensive WordPress functionality:
 - **CORS Configuration** - Restricts cross-origin requests
 - **Token Expiration** - Automatic cleanup of expired tokens
 - **Process Isolation** - Background service runs independently
+- **Confidentiality Protection** - Checks `p2_confidentiality_disabled` sticker on WordPress.com blogs; only allows AI access to blogs with this sticker
 
 ## Production Considerations
 
@@ -218,6 +226,8 @@ After setup, Claude can access comprehensive WordPress functionality:
 
 ## Recent Updates
 
+- ✅ **Added confidentiality protection system** - Automatically checks for `p2_confidentiality_disabled` sticker on WordPress.com blogs; only allows AI access to blogs with this sticker
+- ✅ **Enhanced setup process** - Interactive configuration for confidentiality protection with clear user responsibility warnings
 - ✅ **Added comprehensive Comments API integration** - Full comment functionality including read, create, reply, like, and manage comments
 - ✅ **Implemented persistent token storage** - Tokens survive web app restarts, eliminating redundant setup authentication
 - ✅ Fixed service stop/restart functionality with proper process tree cleanup

@@ -1,3 +1,4 @@
+import { config } from 'dotenv';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -7,6 +8,9 @@ import {
 import { readerTools } from './tools.js';
 import { validateToken, getBackgroundToken, initiateBackgroundAuth } from './auth.js';
 import { log, logError } from './logger.js';
+
+// Load environment variables from .env file
+config();
 
 const server = new Server(
   {
