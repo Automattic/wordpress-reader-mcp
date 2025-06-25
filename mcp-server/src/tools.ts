@@ -353,13 +353,13 @@ export const readerTools: Record<string, Tool> = {
   },
 
   getA8CPosts: {
-    description: 'Get a8c posts from the blogs an a11n user follows. User must be an a11n.',
+    description: 'Get a8c posts from the blogs an a11n user follows. User must be an a11n. Warning: Large numbers of posts may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
         number: {
           type: 'number',
-          description: 'The number of posts to return. Limit: 40. (default: 10)',
+          description: 'The number of posts to return (default: 10, maximum: 40). Requesting more than 20 may result in truncated responses.',
         },
         page: {
           type: 'number',
@@ -380,7 +380,7 @@ export const readerTools: Record<string, Tool> = {
         },
         fields: {
           type: 'string',
-          description: 'Comma-separated list of specific fields to return for each post. Essential fields: ID, site_ID, author, date, title, URL, excerpt, slug, status, like_count, i_like, is_following, format, tags, categories, site_name, site_URL, word_count. Additional available fields: modified, short_URL, guid, discussion, likes_enabled, sharing_enabled, is_reblogged, global_ID, featured_image, post_thumbnail, attachments, attachment_count, metadata, meta, feed_ID, feed_URL, pseudo_ID, is_external, site_is_private, site_is_atomic, site_icon, featured_media, is_subscribed_comments, can_subscribe_comments, subscribed_comments_notifications, publish_date_changed, use_excerpt, capabilities, is_seen, is_jetpack, feed_item_ID, views, is_following_conversation.',
+          description: 'Comma-separated list of fields to return. Default uses optimized field set excluding content. Use "all" for all fields.',
         },
         include_content: {
           type: 'boolean',
@@ -390,14 +390,19 @@ export const readerTools: Record<string, Tool> = {
     },
     handler: async (args, token) => {
       const params = new URLSearchParams();
-      if (args.number) params.append('number', Math.min(args.number, 40).toString());
+      
+      // Enforce pagination limits with default
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_A8C_POSTS);
+      params.append('number', actualNumber.toString());
+      
       if (args.page) params.append('page', args.page.toString());
       if (args.order) params.append('order', args.order);
       if (args.after) params.append('after', args.after);
       if (args.before) params.append('before', args.before);
       
       // Handle fields parameter with content exclusion logic
-      if (args.fields) {
+      if (args.fields && args.fields !== 'all') {
         // If include_content is false (default), ensure content is not in the fields list
         if (args.include_content === false || args.include_content === undefined) {
           const fieldsArray = args.fields.split(',').map((f: string) => f.trim());
@@ -406,10 +411,9 @@ export const readerTools: Record<string, Tool> = {
         } else {
           params.append('fields', args.fields);
         }
-      } else if (args.include_content === false || args.include_content === undefined) {
-        // If no fields specified but include_content is false, exclude content by default
-        // This ensures content is not included even when fields parameter is not used
-        params.append('fields', 'ID,site_ID,author,date,title,URL,excerpt,slug,status,like_count,i_like,is_following,format,tags,categories,site_name,site_URL,word_count');
+      } else if (!args.fields && (args.include_content === false || args.include_content === undefined)) {
+        // If no fields specified but include_content is false, use optimized field set
+        params.append('fields', READER_POST_FIELDS);
       }
       
       return callWordPressAPI(`/read/a8c?${params}`, token);
