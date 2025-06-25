@@ -310,7 +310,11 @@ export const readerTools: Record<string, Tool> = {
         },
         fields: {
           type: 'string',
-          description: 'Comma-separated list of specific fields to return for each post. Available fields include: ID, site_ID, author, date, modified, title, URL, short_URL, excerpt, slug, guid, status, discussion, likes_enabled, sharing_enabled, like_count, i_like, is_reblogged, is_following, global_ID, featured_image, post_thumbnail, format, tags, categories, attachments, attachment_count, metadata, meta, feed_ID, feed_URL, pseudo_ID, is_external, site_name, site_URL, site_is_private, site_is_atomic, site_icon, featured_media, is_subscribed_comments, can_subscribe_comments, subscribed_comments_notifications, publish_date_changed, use_excerpt, capabilities, is_seen, is_jetpack, feed_item_ID, word_count, views, is_following_conversation. Note: Avoid requesting the "content" field as it contains large amounts of HTML content.',
+          description: 'Comma-separated list of specific fields to return for each post. Available fields include: ID, site_ID, author, date, modified, title, URL, short_URL, excerpt, slug, guid, status, discussion, likes_enabled, sharing_enabled, like_count, i_like, is_reblogged, is_following, global_ID, featured_image, post_thumbnail, format, tags, categories, attachments, attachment_count, metadata, meta, feed_ID, feed_URL, pseudo_ID, is_external, site_name, site_URL, site_is_private, site_is_atomic, site_icon, featured_media, is_subscribed_comments, can_subscribe_comments, subscribed_comments_notifications, publish_date_changed, use_excerpt, capabilities, is_seen, is_jetpack, feed_item_ID, word_count, views, is_following_conversation.',
+        },
+        include_content: {
+          type: 'boolean',
+          description: 'Whether to include the full content field in the response. Defaults to false to avoid large HTML content. Set to true only when content is specifically needed.',
         },
       },
     },
@@ -321,7 +325,22 @@ export const readerTools: Record<string, Tool> = {
       if (args.order) params.append('order', args.order);
       if (args.after) params.append('after', args.after);
       if (args.before) params.append('before', args.before);
-      if (args.fields) params.append('fields', args.fields);
+      
+      // Handle fields parameter with content exclusion logic
+      if (args.fields) {
+        // If include_content is false (default), ensure content is not in the fields list
+        if (args.include_content === false || args.include_content === undefined) {
+          const fieldsArray = args.fields.split(',').map(f => f.trim());
+          const filteredFields = fieldsArray.filter(field => field !== 'content');
+          params.append('fields', filteredFields.join(','));
+        } else {
+          params.append('fields', args.fields);
+        }
+      } else if (args.include_content === false || args.include_content === undefined) {
+        // If no fields specified but include_content is false, exclude content by default
+        // This ensures content is not included even when fields parameter is not used
+        params.append('fields', 'ID,site_ID,author,date,modified,title,URL,short_URL,excerpt,slug,guid,status,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,tags,categories,attachments,attachment_count,metadata,meta,feed_ID,feed_URL,pseudo_ID,is_external,site_name,site_URL,site_is_private,site_is_atomic,site_icon,featured_media,is_subscribed_comments,can_subscribe_comments,subscribed_comments_notifications,publish_date_changed,use_excerpt,capabilities,is_seen,is_jetpack,feed_item_ID,word_count,views,is_following_conversation');
+      }
       
       return callWordPressAPI(`/read/a8c?${params}`, token);
     },
