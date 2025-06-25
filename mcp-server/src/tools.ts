@@ -11,6 +11,21 @@ function createConfidentialityError(site: string): Error {
   return new Error(`Access to content from ${site} is restricted due to confidentiality settings. This blog does not have the p2_confidentiality_disabled sticker, which means AI access to its content is not permitted.`);
 }
 
+// Field sets for optimized responses
+const MINIMAL_POST_FIELDS = 'ID,date,title,URL,excerpt,status';
+const STANDARD_POST_FIELDS = 'ID,date,title,URL,excerpt,slug,status,like_count,i_like,format,tags,categories,author';
+const READER_POST_FIELDS = 'ID,site_ID,author,date,title,URL,excerpt,slug,status,like_count,i_like,is_following,format,tags,categories,site_name,site_URL,word_count';
+const MINIMAL_COMMENT_FIELDS = 'ID,date,author,excerpt,status';
+const STANDARD_COMMENT_FIELDS = 'ID,date,author,content,status,like_count,i_like,parent,post';
+
+// Pagination defaults and limits
+const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_LARGE_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 50;
+const MAX_NOTIFICATIONS = 99;
+const MAX_A8C_POSTS = 40;
+const MAX_RECOMMENDATIONS = 30;
+
 export const readerTools: Record<string, Tool> = {
   getReaderMenu: {
     description: 'Retrieve the WordPress Reader default menu with recommended tags, followed sites, and Reader sections for content discovery',
@@ -80,50 +95,77 @@ export const readerTools: Record<string, Tool> = {
   },
 
   getFollowingPosts: {
-    description: 'Retrieve recent posts from all blogs and sites that the authenticated user follows in their WordPress Reader feed',
+    description: 'Retrieve recent posts from all blogs and sites that the authenticated user follows in their WordPress Reader feed. Warning: Large numbers of posts may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
         number: {
           type: 'number',
-          description: 'Number of posts to return (default: 20, maximum: 100)',
+          description: 'Number of posts to return (default: 10, maximum: 50). Requesting more than 20 may result in truncated responses.',
         },
         page: {
           type: 'number',
           description: 'Page number for pagination (starts from 1)',
         },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated list of fields to return. Default uses optimized field set excluding content. Use "all" for all fields.',
+        },
       },
     },
     handler: async (args, token) => {
       const params = new URLSearchParams();
-      if (args.number) params.append('number', args.number.toString());
+      
+      // Enforce pagination limits
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_PAGE_SIZE);
+      params.append('number', actualNumber.toString());
+      
       if (args.page) params.append('page', args.page.toString());
+      
+      // Apply field filtering for optimized responses
+      if (!args.fields || args.fields !== 'all') {
+        params.append('fields', args.fields || READER_POST_FIELDS);
+      }
       
       return callWordPressAPI(`/read/following?${params}`, token);
     },
   },
 
   getLikedPosts: {
-    description: 'Retrieve posts that the authenticated user has liked across the WordPress platform, with engagement history',
+    description: 'Retrieve posts that the authenticated user has liked across the WordPress platform, with engagement history. Warning: Large numbers of posts may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
         number: {
           type: 'number',
-          description: 'Number of posts to return',
+          description: 'Number of posts to return (default: 10, maximum: 50). Requesting more than 20 may result in truncated responses.',
+        },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated list of fields to return. Default uses optimized field set excluding content. Use "all" for all fields.',
         },
       },
     },
     handler: async (args, token) => {
       const params = new URLSearchParams();
-      if (args.number) params.append('number', args.number.toString());
+      
+      // Enforce pagination limits
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_PAGE_SIZE);
+      params.append('number', actualNumber.toString());
+      
+      // Apply field filtering for optimized responses
+      if (!args.fields || args.fields !== 'all') {
+        params.append('fields', args.fields || READER_POST_FIELDS);
+      }
       
       return callWordPressAPI(`/read/liked?${params}`, token);
     },
   },
 
   getTagPosts: {
-    description: 'Get a list of posts from a tag',
+    description: 'Get a list of posts from a tag. Warning: Large numbers of posts may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -133,14 +175,27 @@ export const readerTools: Record<string, Tool> = {
         },
         number: {
           type: 'number',
-          description: 'Number of posts to return',
+          description: 'Number of posts to return (default: 10, maximum: 50). Requesting more than 20 may result in truncated responses.',
+        },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated list of fields to return. Default uses optimized field set excluding content. Use "all" for all fields.',
         },
       },
       required: ['tag'],
     },
     handler: async (args, token) => {
       const params = new URLSearchParams();
-      if (args.number) params.append('number', args.number.toString());
+      
+      // Enforce pagination limits
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_PAGE_SIZE);
+      params.append('number', actualNumber.toString());
+      
+      // Apply field filtering for optimized responses
+      if (!args.fields || args.fields !== 'all') {
+        params.append('fields', args.fields || READER_POST_FIELDS);
+      }
       
       return callWordPressAPI(`/read/tags/${encodeURIComponent(args.tag)}/posts?${params}`, token);
     },
@@ -275,19 +330,23 @@ export const readerTools: Record<string, Tool> = {
   },
 
   getRecommendations: {
-    description: 'Get a list of blog recommendations for the current user',
+    description: 'Get a list of blog recommendations for the current user. Warning: Large numbers of recommendations may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
         number: {
           type: 'number',
-          description: 'Number of recommendations to return',
+          description: 'Number of recommendations to return (default: 10, maximum: 30). Requesting more than 20 may result in truncated responses.',
         },
       },
     },
     handler: async (args, token) => {
       const params = new URLSearchParams();
-      if (args.number) params.append('number', args.number.toString());
+      
+      // Enforce pagination limits
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_RECOMMENDATIONS);
+      params.append('number', actualNumber.toString());
       
       return callWordPressAPI(`/read/recommendations/mine?${params}`, token);
     },
@@ -359,13 +418,13 @@ export const readerTools: Record<string, Tool> = {
 
   // Notifications API endpoints
   getNotifications: {
-    description: 'Get a list of user notifications in reverse chronological order',
+    description: 'Get a list of user notifications in reverse chronological order. Warning: Large numbers of notifications may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
         number: {
           type: 'number',
-          description: 'Number of notifications to return (max 99, default 9)',
+          description: 'Number of notifications to return (default: 10, maximum: 99). Requesting more than 20 may result in truncated responses.',
         },
         unread: {
           type: 'boolean',
@@ -401,7 +460,10 @@ export const readerTools: Record<string, Tool> = {
     handler: async (args, token) => {
       const params = new URLSearchParams();
       
-      if (args.number) params.append('number', Math.min(args.number, 99).toString());
+      // Enforce pagination limits with default
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_NOTIFICATIONS);
+      params.append('number', actualNumber.toString());
       if (args.unread !== undefined) params.append('unread', args.unread.toString());
       if (args.read !== undefined) params.append('read', args.read.toString());
       if (args.type) params.append('type', args.type);
@@ -491,7 +553,7 @@ export const readerTools: Record<string, Tool> = {
 
   // Comments API Tools
   getPostComments: {
-    description: 'Get comments for a specific post',
+    description: 'Get comments for a specific post. Warning: Large numbers of comments may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -505,7 +567,7 @@ export const readerTools: Record<string, Tool> = {
         },
         number: {
           type: 'number',
-          description: 'Number of comments to retrieve (default: 20)',
+          description: 'Number of comments to retrieve (default: 10, maximum: 50). Requesting more than 20 may result in truncated responses.',
         },
         order: {
           type: 'string',
@@ -516,6 +578,10 @@ export const readerTools: Record<string, Tool> = {
           type: 'string',
           description: 'Filter by comment status: approved, pending, spam, trash, all (default: approved)',
           enum: ['approved', 'pending', 'spam', 'trash', 'all'],
+        },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated list of fields to return. Default uses optimized field set. Use "all" for all fields.',
         },
       },
       required: ['site', 'post_id'],
@@ -529,9 +595,21 @@ export const readerTools: Record<string, Tool> = {
         }
       }
       const params = new URLSearchParams();
-      if (args.number) params.append('number', args.number.toString());
+      
+      // Enforce pagination limits
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_PAGE_SIZE);
+      params.append('number', actualNumber.toString());
+      
       if (args.order) params.append('order', args.order);
       if (args.status) params.append('status', args.status);
+      
+      // Apply field filtering for optimized responses
+      if (args.fields && args.fields !== 'all') {
+        params.append('fields', args.fields);
+      } else if (!args.fields) {
+        params.append('fields', STANDARD_COMMENT_FIELDS);
+      }
       
       return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/replies?${params}`, token);
     },
@@ -700,7 +778,7 @@ export const readerTools: Record<string, Tool> = {
   },
 
   getSiteComments: {
-    description: 'Get all comments for a site',
+    description: 'Get all comments for a site. Warning: Large numbers of comments may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -710,7 +788,7 @@ export const readerTools: Record<string, Tool> = {
         },
         number: {
           type: 'number',
-          description: 'Number of comments to retrieve (default: 20)',
+          description: 'Number of comments to retrieve (default: 10, maximum: 50). Requesting more than 20 may result in truncated responses.',
         },
         order: {
           type: 'string',
@@ -727,6 +805,10 @@ export const readerTools: Record<string, Tool> = {
           description: 'Filter by comment type: comment, trackback, pingback, review (default: comment)',
           enum: ['comment', 'trackback', 'pingback', 'review'],
         },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated list of fields to return. Default uses optimized field set. Use "all" for all fields.',
+        },
       },
       required: ['site'],
     },
@@ -739,10 +821,22 @@ export const readerTools: Record<string, Tool> = {
         }
       }
       const params = new URLSearchParams();
-      if (args.number) params.append('number', args.number.toString());
+      
+      // Enforce pagination limits
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_PAGE_SIZE);
+      params.append('number', actualNumber.toString());
+      
       if (args.order) params.append('order', args.order);
       if (args.status) params.append('status', args.status);
       if (args.type) params.append('type', args.type);
+      
+      // Apply field filtering for optimized responses
+      if (args.fields && args.fields !== 'all') {
+        params.append('fields', args.fields);
+      } else if (!args.fields) {
+        params.append('fields', STANDARD_COMMENT_FIELDS);
+      }
       
       return callWordPressAPI(`/sites/${args.site}/comments?${params}`, token);
     },
@@ -1117,7 +1211,7 @@ export const readerTools: Record<string, Tool> = {
   },
 
   listPosts: {
-    description: 'Retrieve a paginated list of posts from a WordPress site with advanced filtering, sorting, and search capabilities',
+    description: 'Retrieve a paginated list of posts from a WordPress site with advanced filtering, sorting, and search capabilities. Warning: Large numbers of posts may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1127,7 +1221,11 @@ export const readerTools: Record<string, Tool> = {
         },
         number: {
           type: 'number',
-          description: 'Number of posts to return (default: 20, maximum: 100)',
+          description: 'Number of posts to return (default: 10, maximum: 50). Requesting more than 20 may result in truncated responses.',
+        },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated list of fields to return. Default uses optimized field set excluding content. Use "all" for all fields.',
         },
         offset: {
           type: 'number',
@@ -1197,7 +1295,12 @@ export const readerTools: Record<string, Tool> = {
         }
       }
       const params = new URLSearchParams();
-      if (args.number) params.append('number', args.number.toString());
+      
+      // Enforce pagination limits
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_PAGE_SIZE);
+      params.append('number', actualNumber.toString());
+      
       if (args.offset) params.append('offset', args.offset.toString());
       if (args.page) params.append('page', args.page.toString());
       if (args.order) params.append('order', args.order);
@@ -1211,9 +1314,11 @@ export const readerTools: Record<string, Tool> = {
       if (args.before) params.append('before', args.before);
       if (args.sticky) params.append('sticky', args.sticky);
       
-      // Handle content exclusion logic - exclude content by default unless explicitly requested
-      if (args.include_content === false || args.include_content === undefined) {
-        params.append('fields', 'ID,date,title,URL,excerpt,slug,status,sticky,like_count,i_like,format,tags,categories,author');
+      // Handle field selection with content exclusion logic
+      if (args.fields && args.fields !== 'all') {
+        params.append('fields', args.fields);
+      } else if (!args.fields && (args.include_content === false || args.include_content === undefined)) {
+        params.append('fields', STANDARD_POST_FIELDS);
       }
       
       return callWordPressAPI(`/sites/${args.site}/posts?${params}`, token);
@@ -1277,7 +1382,7 @@ export const readerTools: Record<string, Tool> = {
   },
 
   getPostLikes: {
-    description: 'Retrieve a list of users who have liked a specific WordPress post, with pagination support',
+    description: 'Retrieve a list of users who have liked a specific WordPress post, with pagination support. Warning: Large numbers of likes may result in truncated responses.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1291,7 +1396,7 @@ export const readerTools: Record<string, Tool> = {
         },
         number: {
           type: 'number',
-          description: 'Number of likes to return (default: 20)',
+          description: 'Number of likes to return (default: 10, maximum: 50). Requesting more than 20 may result in truncated responses.',
         },
         offset: {
           type: 'number',
@@ -1309,7 +1414,12 @@ export const readerTools: Record<string, Tool> = {
         }
       }
       const params = new URLSearchParams();
-      if (args.number) params.append('number', args.number.toString());
+      
+      // Enforce pagination limits
+      const requestedNumber = args.number || DEFAULT_PAGE_SIZE;
+      const actualNumber = Math.min(requestedNumber, MAX_PAGE_SIZE);
+      params.append('number', actualNumber.toString());
+      
       if (args.offset) params.append('offset', args.offset.toString());
       
       return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}/likes?${params}`, token);
