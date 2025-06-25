@@ -308,6 +308,10 @@ export const readerTools: Record<string, Tool> = {
           type: 'string',
           description: 'Return posts dated before the specified datetime (ISO 8601 format).',
         },
+        fields: {
+          type: 'string',
+          description: 'Comma-separated list of specific fields to return for each post. Available fields include: ID, site_ID, author, date, modified, title, URL, short_URL, excerpt, slug, guid, status, discussion, likes_enabled, sharing_enabled, like_count, i_like, is_reblogged, is_following, global_ID, featured_image, post_thumbnail, format, tags, categories, attachments, attachment_count, metadata, meta, feed_ID, feed_URL, pseudo_ID, is_external, site_name, site_URL, site_is_private, site_is_atomic, site_icon, featured_media, is_subscribed_comments, can_subscribe_comments, subscribed_comments_notifications, publish_date_changed, use_excerpt, capabilities, is_seen, is_jetpack, feed_item_ID, word_count, views, is_following_conversation. Note: Avoid requesting the "content" field as it contains large amounts of HTML content.',
+        },
       },
     },
     handler: async (args, token) => {
@@ -317,6 +321,7 @@ export const readerTools: Record<string, Tool> = {
       if (args.order) params.append('order', args.order);
       if (args.after) params.append('after', args.after);
       if (args.before) params.append('before', args.before);
+      if (args.fields) params.append('fields', args.fields);
       
       return callWordPressAPI(`/read/a8c?${params}`, token);
     },
