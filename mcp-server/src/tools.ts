@@ -53,6 +53,10 @@ export const readerTools: Record<string, Tool> = {
           type: 'string',
           description: 'Unique post identifier (numeric ID)',
         },
+        include_content: {
+          type: 'boolean',
+          description: 'Whether to include the full content field in the response. Defaults to false to avoid large HTML content. Set to true only when content is specifically needed.',
+        },
       },
       required: ['site', 'post_id'],
     },
@@ -64,7 +68,13 @@ export const readerTools: Record<string, Tool> = {
           throw createConfidentialityError(args.site);
         }
       }
-      return callWordPressAPI(`/read/sites/${args.site}/posts/${args.post_id}`, token);
+      // Handle content exclusion logic - exclude content by default unless explicitly requested
+      const params = new URLSearchParams();
+      if (args.include_content === false || args.include_content === undefined) {
+        params.append('fields', 'ID,site_ID,author,date,modified,title,URL,short_URL,excerpt,slug,guid,status,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,tags,categories,attachments,attachment_count,metadata,meta,feed_ID,feed_URL,pseudo_ID,is_external,site_name,site_URL,site_is_private,site_is_atomic,site_icon,featured_media,is_subscribed_comments,can_subscribe_comments,subscribed_comments_notifications,publish_date_changed,use_excerpt,capabilities,is_seen,is_jetpack,feed_item_ID,word_count,views,is_following_conversation');
+      }
+      
+      return callWordPressAPI(`/read/sites/${args.site}/posts/${args.post_id}?${params}`, token);
     },
   },
 
@@ -922,6 +932,10 @@ export const readerTools: Record<string, Tool> = {
           description: 'Response context: "display" for rendered HTML, "edit" for raw content with editing metadata',
           enum: ['display', 'edit'],
         },
+        include_content: {
+          type: 'boolean',
+          description: 'Whether to include the full content field in the response. Defaults to false to avoid large HTML content. Set to true only when content is specifically needed.',
+        },
       },
       required: ['site', 'post_id'],
     },
@@ -935,6 +949,11 @@ export const readerTools: Record<string, Tool> = {
       }
       const params = new URLSearchParams();
       if (args.context) params.append('context', args.context);
+      
+      // Handle content exclusion logic - exclude content by default unless explicitly requested
+      if (args.include_content === false || args.include_content === undefined) {
+        params.append('fields', 'ID,date,modified,title,URL,short_URL,excerpt,slug,status,sticky,password,parent,type,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,geo,menu_order,page_template,publicize_URLs,terms,tags,categories,attachments,attachment_count,metadata,author');
+      }
       
       return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}?${params}`, token);
     },
@@ -958,6 +977,10 @@ export const readerTools: Record<string, Tool> = {
           description: 'Response context: "display" for rendered HTML, "edit" for raw content',
           enum: ['display', 'edit'],
         },
+        include_content: {
+          type: 'boolean',
+          description: 'Whether to include the full content field in the response. Defaults to false to avoid large HTML content. Set to true only when content is specifically needed.',
+        },
       },
       required: ['site', 'slug'],
     },
@@ -971,6 +994,11 @@ export const readerTools: Record<string, Tool> = {
       }
       const params = new URLSearchParams();
       if (args.context) params.append('context', args.context);
+      
+      // Handle content exclusion logic - exclude content by default unless explicitly requested
+      if (args.include_content === false || args.include_content === undefined) {
+        params.append('fields', 'ID,date,modified,title,URL,short_URL,excerpt,slug,status,sticky,password,parent,type,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,geo,menu_order,page_template,publicize_URLs,terms,tags,categories,attachments,attachment_count,metadata,author');
+      }
       
       return callWordPressAPI(`/sites/${args.site}/posts/slug:${args.slug}?${params}`, token);
     },
@@ -1152,6 +1180,10 @@ export const readerTools: Record<string, Tool> = {
           description: 'Filter by sticky post status',
           enum: ['include', 'exclude', 'require'],
         },
+        include_content: {
+          type: 'boolean',
+          description: 'Whether to include the full content field in the response. Defaults to false to avoid large HTML content. Set to true only when content is specifically needed.',
+        },
       },
       required: ['site'],
     },
@@ -1177,6 +1209,11 @@ export const readerTools: Record<string, Tool> = {
       if (args.after) params.append('after', args.after);
       if (args.before) params.append('before', args.before);
       if (args.sticky) params.append('sticky', args.sticky);
+      
+      // Handle content exclusion logic - exclude content by default unless explicitly requested
+      if (args.include_content === false || args.include_content === undefined) {
+        params.append('fields', 'ID,date,modified,title,URL,short_URL,excerpt,slug,status,sticky,password,parent,type,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,geo,menu_order,page_template,publicize_URLs,terms,tags,categories,attachments,attachment_count,metadata,author');
+      }
       
       return callWordPressAPI(`/sites/${args.site}/posts?${params}`, token);
     },
