@@ -71,7 +71,8 @@ export const readerTools: Record<string, Tool> = {
       // Handle content exclusion logic - exclude content by default unless explicitly requested
       const params = new URLSearchParams();
       if (args.include_content === false || args.include_content === undefined) {
-        params.append('fields', 'ID,site_ID,author,date,modified,title,URL,short_URL,excerpt,slug,guid,status,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,tags,categories,attachments,attachment_count,metadata,meta,feed_ID,feed_URL,pseudo_ID,is_external,site_name,site_URL,site_is_private,site_is_atomic,site_icon,featured_media,is_subscribed_comments,can_subscribe_comments,subscribed_comments_notifications,publish_date_changed,use_excerpt,capabilities,is_seen,is_jetpack,feed_item_ID,word_count,views,is_following_conversation');
+        // Only include essential fields for AI interactions, excluding verbose/internal fields
+        params.append('fields', 'ID,site_ID,author,date,title,URL,excerpt,slug,status,like_count,i_like,is_following,format,tags,categories,site_name,site_URL,word_count');
       }
       
       return callWordPressAPI(`/read/sites/${args.site}/posts/${args.post_id}?${params}`, token);
@@ -320,7 +321,7 @@ export const readerTools: Record<string, Tool> = {
         },
         fields: {
           type: 'string',
-          description: 'Comma-separated list of specific fields to return for each post. Available fields include: ID, site_ID, author, date, modified, title, URL, short_URL, excerpt, slug, guid, status, discussion, likes_enabled, sharing_enabled, like_count, i_like, is_reblogged, is_following, global_ID, featured_image, post_thumbnail, format, tags, categories, attachments, attachment_count, metadata, meta, feed_ID, feed_URL, pseudo_ID, is_external, site_name, site_URL, site_is_private, site_is_atomic, site_icon, featured_media, is_subscribed_comments, can_subscribe_comments, subscribed_comments_notifications, publish_date_changed, use_excerpt, capabilities, is_seen, is_jetpack, feed_item_ID, word_count, views, is_following_conversation.',
+          description: 'Comma-separated list of specific fields to return for each post. Essential fields: ID, site_ID, author, date, title, URL, excerpt, slug, status, like_count, i_like, is_following, format, tags, categories, site_name, site_URL, word_count. Additional available fields: modified, short_URL, guid, discussion, likes_enabled, sharing_enabled, is_reblogged, global_ID, featured_image, post_thumbnail, attachments, attachment_count, metadata, meta, feed_ID, feed_URL, pseudo_ID, is_external, site_is_private, site_is_atomic, site_icon, featured_media, is_subscribed_comments, can_subscribe_comments, subscribed_comments_notifications, publish_date_changed, use_excerpt, capabilities, is_seen, is_jetpack, feed_item_ID, views, is_following_conversation.',
         },
         include_content: {
           type: 'boolean',
@@ -349,7 +350,7 @@ export const readerTools: Record<string, Tool> = {
       } else if (args.include_content === false || args.include_content === undefined) {
         // If no fields specified but include_content is false, exclude content by default
         // This ensures content is not included even when fields parameter is not used
-        params.append('fields', 'ID,site_ID,author,date,modified,title,URL,short_URL,excerpt,slug,guid,status,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,tags,categories,attachments,attachment_count,metadata,meta,feed_ID,feed_URL,pseudo_ID,is_external,site_name,site_URL,site_is_private,site_is_atomic,site_icon,featured_media,is_subscribed_comments,can_subscribe_comments,subscribed_comments_notifications,publish_date_changed,use_excerpt,capabilities,is_seen,is_jetpack,feed_item_ID,word_count,views,is_following_conversation');
+        params.append('fields', 'ID,site_ID,author,date,title,URL,excerpt,slug,status,like_count,i_like,is_following,format,tags,categories,site_name,site_URL,word_count');
       }
       
       return callWordPressAPI(`/read/a8c?${params}`, token);
@@ -952,7 +953,7 @@ export const readerTools: Record<string, Tool> = {
       
       // Handle content exclusion logic - exclude content by default unless explicitly requested
       if (args.include_content === false || args.include_content === undefined) {
-        params.append('fields', 'ID,date,modified,title,URL,short_URL,excerpt,slug,status,sticky,password,parent,type,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,geo,menu_order,page_template,publicize_URLs,terms,tags,categories,attachments,attachment_count,metadata,author');
+        params.append('fields', 'ID,date,title,URL,excerpt,slug,status,sticky,like_count,i_like,format,tags,categories,author');
       }
       
       return callWordPressAPI(`/sites/${args.site}/posts/${args.post_id}?${params}`, token);
@@ -997,7 +998,7 @@ export const readerTools: Record<string, Tool> = {
       
       // Handle content exclusion logic - exclude content by default unless explicitly requested
       if (args.include_content === false || args.include_content === undefined) {
-        params.append('fields', 'ID,date,modified,title,URL,short_URL,excerpt,slug,status,sticky,password,parent,type,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,geo,menu_order,page_template,publicize_URLs,terms,tags,categories,attachments,attachment_count,metadata,author');
+        params.append('fields', 'ID,date,title,URL,excerpt,slug,status,sticky,like_count,i_like,format,tags,categories,author');
       }
       
       return callWordPressAPI(`/sites/${args.site}/posts/slug:${args.slug}?${params}`, token);
@@ -1212,7 +1213,7 @@ export const readerTools: Record<string, Tool> = {
       
       // Handle content exclusion logic - exclude content by default unless explicitly requested
       if (args.include_content === false || args.include_content === undefined) {
-        params.append('fields', 'ID,date,modified,title,URL,short_URL,excerpt,slug,status,sticky,password,parent,type,discussion,likes_enabled,sharing_enabled,like_count,i_like,is_reblogged,is_following,global_ID,featured_image,post_thumbnail,format,geo,menu_order,page_template,publicize_URLs,terms,tags,categories,attachments,attachment_count,metadata,author');
+        params.append('fields', 'ID,date,title,URL,excerpt,slug,status,sticky,like_count,i_like,format,tags,categories,author');
       }
       
       return callWordPressAPI(`/sites/${args.site}/posts?${params}`, token);
