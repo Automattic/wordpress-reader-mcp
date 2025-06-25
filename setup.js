@@ -402,7 +402,7 @@ function buildApplications() {
 }
 
 // Check if Claude Desktop is already configured
-function checkClaudeConfiguration(requiredSecret) {
+function checkClaudeConfiguration(requiredSecret, enableConfidentialityProtection = true) {
   const configPath = getClaudeConfigPath();
   
   if (fs.existsSync(configPath)) {
@@ -416,10 +416,16 @@ function checkClaudeConfiguration(requiredSecret) {
           return true;
         }
         
-        // Check if the configuration includes the required shared secret
+        // Check if the configuration includes the required shared secret and confidentiality setting
         const wpReader = config.mcpServers['wordpress-reader'];
         if (wpReader.env && wpReader.env.MCP_SHARED_SECRET === requiredSecret) {
-          return true;
+          // Also check if confidentiality setting matches
+          const expectedConfidentialityCheck = enableConfidentialityProtection ? 'false' : 'true';
+          if (wpReader.env.DISABLE_CONFIDENTIALITY_CHECK === expectedConfidentialityCheck) {
+            return true;
+          }
+          // If confidentiality setting doesn't match or is missing, we should reconfigure
+          return false;
         }
       }
     } catch (error) {
@@ -431,7 +437,7 @@ function checkClaudeConfiguration(requiredSecret) {
 }
 
 // Configure Claude Desktop
-function configureClaudeDesktop() {
+function configureClaudeDesktop(enableConfidentialityProtection = true) {
   log('\n🎯 Configuring Claude Desktop...', 'cyan');
   
   const configPath = getClaudeConfigPath();
@@ -464,8 +470,8 @@ function configureClaudeDesktop() {
     return false;
   }
   
-  // Check if already configured with correct secret
-  if (checkClaudeConfiguration(mcpSharedSecret)) {
+  // Check if already configured with correct secret and confidentiality setting
+  if (checkClaudeConfiguration(mcpSharedSecret, enableConfidentialityProtection)) {
     logSuccess('WordPress Reader is already configured in Claude Desktop');
     return true;
   }
@@ -490,7 +496,8 @@ function configureClaudeDesktop() {
       args: [mcpServerPath],
       env: {
         AUTH_SERVER_URL: 'http://localhost:3000',
-        MCP_SHARED_SECRET: mcpSharedSecret
+        MCP_SHARED_SECRET: mcpSharedSecret,
+        DISABLE_CONFIDENTIALITY_CHECK: enableConfidentialityProtection ? 'false' : 'true'
       }
     };
     
@@ -504,6 +511,12 @@ function configureClaudeDesktop() {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     logSuccess('Claude Desktop configured successfully with security settings');
     
+    if (enableConfidentialityProtection) {
+      logInfo('Confidentiality protection ENABLED - only blogs with p2_confidentiality_disabled sticker will be accessible');
+    } else {
+      logWarning('Confidentiality protection DISABLED - all blog content will be accessible');
+    }
+    
     return true;
   } catch (error) {
     logWarning('Failed to automatically configure Claude Desktop');
@@ -513,7 +526,7 @@ function configureClaudeDesktop() {
 }
 
 // Show manual configuration instructions
-function showManualConfig() {
+function showManualConfig(enableConfidentialityProtection = true) {
   const currentDir = process.cwd();
   const mcpServerPath = path.join(currentDir, 'mcp-server/dist/index.js');
   const configPath = getClaudeConfigPath();
@@ -554,6 +567,11 @@ function showManualConfig() {
     "wordpress-reader": {
       "command": "node",
       "args": ["${mcpServerPath}"],
+      "env": {
+        "AUTH_SERVER_URL": "http://localhost:3000",
+        "MCP_SHARED_SECRET": "${mcpSharedSecret}",
+        "DISABLE_CONFIDENTIALITY_CHECK": "${enableConfidentialityProtection ? 'false' : 'true'}"
+      }
     }
   }
 }`;
@@ -711,9 +729,9 @@ async function main() {
     createEnvironmentFile(credentials, enableConfidentialityProtection);
     buildApplications();
     
-    const claudeConfigured = configureClaudeDesktop();
+    const claudeConfigured = configureClaudeDesktop(enableConfidentialityProtection);
     if (!claudeConfigured) {
-      showManualConfig();
+      showManualConfig(enableConfidentialityProtection);
       
       const continueSetup = await askQuestion('\nDid you manually configure Claude Desktop? (y/n): ');
       if (continueSetup.toLowerCase() !== 'y') {
