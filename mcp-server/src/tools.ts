@@ -330,8 +330,8 @@ export const readerTools: Record<string, Tool> = {
       if (args.fields) {
         // If include_content is false (default), ensure content is not in the fields list
         if (args.include_content === false || args.include_content === undefined) {
-          const fieldsArray = args.fields.split(',').map(f => f.trim());
-          const filteredFields = fieldsArray.filter(field => field !== 'content');
+          const fieldsArray = args.fields.split(',').map((f: string) => f.trim());
+          const filteredFields = fieldsArray.filter((field: string) => field !== 'content');
           params.append('fields', filteredFields.join(','));
         } else {
           params.append('fields', args.fields);
