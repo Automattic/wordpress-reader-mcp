@@ -361,7 +361,33 @@ function buildApplications() {
       execSync('npm run build', { cwd: 'mcp-server', stdio: 'inherit' });
       logSuccess('MCP server built successfully');
     } else {
-      logSuccess('MCP server already built');
+      // Check if source files are newer than dist files to determine if rebuild is needed
+      const sourceFiles = ['mcp-server/src/index.ts', 'mcp-server/src/tools.ts', 'mcp-server/src/auth.ts', 'mcp-server/src/wordpress-api.ts'];
+      const distFile = 'mcp-server/dist/index.js';
+      
+      let needsRebuild = false;
+      if (fs.existsSync(distFile)) {
+        const distStat = fs.statSync(distFile);
+        for (const sourceFile of sourceFiles) {
+          if (fs.existsSync(sourceFile)) {
+            const sourceStat = fs.statSync(sourceFile);
+            if (sourceStat.mtime > distStat.mtime) {
+              needsRebuild = true;
+              break;
+            }
+          }
+        }
+      } else {
+        needsRebuild = true;
+      }
+      
+      if (needsRebuild) {
+        log('Source files updated, rebuilding MCP server...');
+        execSync('npm run build', { cwd: 'mcp-server', stdio: 'inherit' });
+        logSuccess('MCP server rebuilt successfully');
+      } else {
+        logSuccess('MCP server already built and up to date');
+      }
     }
 
     // If both were already built, offer to rebuild
