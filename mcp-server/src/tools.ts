@@ -283,41 +283,42 @@ export const readerTools: Record<string, Tool> = {
   },
 
   getA8CPosts: {
-    description: 'Get Automattic company posts from the A8C stream',
+    description: 'Get a8c posts from the blogs an a11n user follows. User must be an a11n.',
     inputSchema: {
       type: 'object',
       properties: {
         number: {
           type: 'number',
-          description: 'Number of posts to return (default: 4)',
+          description: 'The number of posts to return. Limit: 40. (default: 10)',
         },
-        orderBy: {
-          type: 'string',
-          description: 'Order posts by (default: date)',
-          enum: ['date', 'popularity'],
-        },
-        content_width: {
+        page: {
           type: 'number',
-          description: 'Content width in pixels (default: 675)',
+          description: 'Return the Nth 1-indexed page of posts.',
         },
-        lang: {
+        order: {
           type: 'string',
-          description: 'Language code (default: en)',
+          description: 'Return posts in ascending or descending order. For dates, DESC means newest to oldest, ASC means oldest to newest.',
+          enum: ['DESC', 'ASC'],
+        },
+        after: {
+          type: 'string',
+          description: 'Return posts dated after the specified datetime (ISO 8601 format).',
+        },
+        before: {
+          type: 'string',
+          description: 'Return posts dated before the specified datetime (ISO 8601 format).',
         },
       },
     },
     handler: async (args, token) => {
-      const params = new URLSearchParams({
-        http_envelope: '1',
-        orderBy: args.orderBy || 'date',
-        meta: 'post,discover_original_post',
-        feed_id: '',
-        number: (args.number || 4).toString(),
-        lang: args.lang || 'en',
-        content_width: (args.content_width || 675).toString(),
-      });
+      const params = new URLSearchParams();
+      if (args.number) params.append('number', Math.min(args.number, 40).toString());
+      if (args.page) params.append('page', args.page.toString());
+      if (args.order) params.append('order', args.order);
+      if (args.after) params.append('after', args.after);
+      if (args.before) params.append('before', args.before);
       
-      return callWordPressAPI(`/rest/v1.2/read/a8c?${params}`, token);
+      return callWordPressAPI(`/read/a8c?${params}`, token);
     },
   },
 
